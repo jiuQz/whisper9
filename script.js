@@ -1,10 +1,29 @@
 // ============================================================
-//  AI Chat - 仿智能手机应用 v3.5
+//  AI Chat - 仿智能手机应用 v3.6
 //  主界面 + iOS系统设置 + 聊天设置(三点菜单) + 主题 + API + 模型自拉取
-//  + 全部应用页面 + 图标自定义图片上传
+//  + 全部应用页面 + 图标自定义图片上传 + 恢复默认图标
 // ============================================================
 
 const $ = id => document.getElementById(id);
+
+// ===== Canvas roundRect polyfill (for older browsers) =====
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        if (typeof r === 'number') r = { tl: r, tr: r, br: r, bl: r };
+        this.beginPath();
+        this.moveTo(x + r.tl, y);
+        this.lineTo(x + w - r.tr, y);
+        this.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+        this.lineTo(x + w, y + h - r.br);
+        this.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+        this.lineTo(x + r.bl, y + h);
+        this.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+        this.lineTo(x, y + r.tl);
+        this.quadraticCurveTo(x, y, x + r.tl, y);
+        this.closePath();
+        return this;
+    };
+}
 const pageContainer = $('pageContainer');
 const pageHome = $('pageHome');
 const pageChat = $('pageChat');
@@ -38,6 +57,19 @@ const WALLPAPERS = {
 const DEFAULT_WALLPAPER = 'gradient1';
 const DEFAULT_CUSTOM_COLOR = '#e8e8ea';
 
+// ===== 默认图标颜色（供恢复使用） =====
+const DEFAULT_ICON_COLORS = {
+    chat: { c1: '#667eea', c2: '#764ba2' },
+    settings: { c1: '#8e8e93', c2: '#636366' },
+    theme: { c1: '#af52de', c2: '#5e5ce6' },
+    photos: { c1: '#ff9500', c2: '#ffcc00' },
+    music: { c1: '#ff2d55', c2: '#ff6b81' },
+    safari: { c1: '#34c759', c2: '#30d158' },
+    notes: { c1: '#ffd60a', c2: '#ffb800' },
+    weather: { c1: '#5ac8fa', c2: '#007aff' },
+    clock: { c1: '#1c1c1e', c2: '#2c2c2e' }
+};
+
 // ===== 状态 =====
 const STATE = {
     messages: [],
@@ -63,7 +95,6 @@ const STATE = {
             customColorHex: localStorage.getItem('theme_custom_color') || '#e8e8ea',
             iconShape: localStorage.getItem('theme_icon_shape') || 'rounded',
             iconSize: parseInt(localStorage.getItem('theme_icon_size')) || 58,
-            iconColors: JSON.parse(localStorage.getItem('theme_icon_colors') || '{}'),
             iconImages: JSON.parse(localStorage.getItem('theme_icon_images') || '{}')
         }
     }
@@ -164,12 +195,33 @@ $('backSafari').addEventListener('click', closeApp);
 $('backWeather').addEventListener('click', closeApp);
 $('backNotes').addEventListener('click', closeApp);
 $('backClock').addEventListener('click', closeApp);
+// Home Indicator 点击返回主屏（模拟 iPhone 底部退出键）
+const homeIndicator = document.querySelector('.home-indicator');
+if (homeIndicator) {
+    homeIndicator.addEventListener('click', () => {
+        if (currentApp) closeApp();
+    });
+    homeIndicator.style.cursor = 'pointer';
+}
 
 // 聊天三点菜单 → 聊天设置
 $('chatSettingsBtn').addEventListener('click', () => {
     loadSettingsUI();
     openApp('chatSettings', pageChatSettings);
 });
+
+// 收藏按钮 → 打开收藏面板
+const favBtn = $('favoritesBtn');
+if (favBtn) {
+    favBtn.addEventListener('click', () => {
+        const panel = document.getElementById('favoritesPanel');
+        if (panel && panel.classList.contains('show')) {
+            hideFavoritesPanel();
+        } else {
+            showFavoritesPanel();
+        }
+    });
+}
 
 // ===== 用户头像系统 =====
 function applyUserAvatar() {
@@ -680,22 +732,6 @@ function loadThemeUI() {
     $('iconShape').value = theme.iconShape;
     $('iconSize').value = theme.iconSize;
     $('iconSizeValue').textContent = theme.iconSize;
-
-    document.querySelectorAll('.icon-color-item').forEach(item => {
-        const appName = item.dataset.appIcon;
-        const colors = theme.iconColors[appName];
-        item.querySelectorAll('.icon-preset').forEach(p => {
-            if (colors) {
-                p.classList.toggle('active', p.dataset.c1 === colors.c1 && p.dataset.c2 === colors.c2);
-            } else {
-                p.classList.remove('active');
-            }
-        });
-        if (!colors) {
-            const firstPreset = item.querySelector('.icon-preset');
-            if (firstPreset) firstPreset.classList.add('active');
-        }
-    });
 }
 
 function applyTheme() {
@@ -743,20 +779,7 @@ function applyIconSize() {
 }
 
 function getIconColor(appName) {
-    const { iconColors } = STATE.settings.theme;
-    if (iconColors[appName]) return iconColors[appName];
-    const defaults = {
-        chat: { c1: '#667eea', c2: '#764ba2' },
-        settings: { c1: '#8e8e93', c2: '#636366' },
-        theme: { c1: '#af52de', c2: '#5e5ce6' },
-        photos: { c1: '#ff9500', c2: '#ffcc00' },
-        music: { c1: '#ff2d55', c2: '#ff6b81' },
-        safari: { c1: '#34c759', c2: '#30d158' },
-        notes: { c1: '#ffd60a', c2: '#ffb800' },
-        weather: { c1: '#5ac8fa', c2: '#007aff' },
-        clock: { c1: '#1c1c1e', c2: '#2c2c2e' }
-    };
-    return defaults[appName] || { c1: '#667eea', c2: '#764ba2' };
+    return DEFAULT_ICON_COLORS[appName] || { c1: '#667eea', c2: '#764ba2' };
 }
 
 function applyIconColors() {
@@ -818,24 +841,29 @@ function saveTheme() {
     theme.iconShape = $('iconShape').value;
     theme.iconSize = parseInt($('iconSize').value);
 
-    document.querySelectorAll('.icon-color-item').forEach(item => {
-        const appName = item.dataset.appIcon;
-        const activePreset = item.querySelector('.icon-preset.active');
-        if (activePreset) {
-            theme.iconColors[appName] = { c1: activePreset.dataset.c1, c2: activePreset.dataset.c2 };
-        }
-    });
-
     localStorage.setItem('theme_wallpaper', theme.wallpaper);
     localStorage.setItem('theme_wallpaper_img', theme.wallpaperImage);
     localStorage.setItem('theme_custom_color', theme.customColorHex);
     localStorage.setItem('theme_icon_shape', theme.iconShape);
     localStorage.setItem('theme_icon_size', theme.iconSize);
-    localStorage.setItem('theme_icon_colors', JSON.stringify(theme.iconColors));
     localStorage.setItem('theme_icon_images', JSON.stringify(theme.iconImages));
+
+    // 清理旧版 iconColors 数据
+    localStorage.removeItem('theme_icon_colors');
 
     applyTheme();
     showToast('主题已保存');
+}
+
+// ===== 恢复默认图标 =====
+function resetIcons() {
+    // 清空所有自定义图标图片
+    STATE.settings.theme.iconImages = {};
+    localStorage.setItem('theme_icon_images', '{}');
+    // 清理旧版 iconColors
+    localStorage.removeItem('theme_icon_colors');
+    applyIconColors();
+    showToast('所有图标已恢复默认');
 }
 
 // 壁纸选择
@@ -881,6 +909,12 @@ if (resetWallpaperBtn) {
         loadThemeUI();
         showToast('壁纸已恢复默认');
     });
+}
+
+// 恢复默认图标按钮
+const resetIconsBtn = $('resetIconsBtn');
+if (resetIconsBtn) {
+    resetIconsBtn.addEventListener('click', resetIcons);
 }
 
 // 壁纸图片上传
@@ -935,5 +969,827 @@ const origGoBack = goBackToChat;
 goBackToChat = function() {
     origGoBack();
     setTimeout(updateStatusColor, 50);
+};
+
+// ===== 聊天气泡长按菜单系统 =====
+const contextMenu = document.getElementById('bubbleContextMenu');
+if (!contextMenu) {
+    // fallback: 动态创建
+    const cm = document.createElement('div');
+    cm.className = 'bubble-context-menu';
+    cm.id = 'bubbleContextMenu';
+    cm.innerHTML = `
+        <div class="ctx-menu-item" data-action="copy"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg><span>复制</span></div>
+        <div class="ctx-menu-item" data-action="forward"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm4 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-.5 11.5L17 19l-4.5-4.5H15v-5h2v5h2.5z" fill="currentColor"/></svg><span>转发</span></div>
+        <div class="ctx-menu-item" data-action="quote"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 17h3l2-4V7H5v6h3l-2 4zm8 0h3l2-4V7h-6v6h3l-2 4z" fill="currentColor"/></svg><span>引用</span></div>
+        <div class="ctx-menu-item" data-action="favorite"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor"/></svg><span>收藏</span></div>
+        <div class="ctx-menu-item" data-action="screenshot"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill="currentColor"/></svg><span>截图</span></div>
+        <div class="ctx-menu-item" data-action="edit"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg><span>编辑</span></div>
+        <div class="ctx-menu-item" data-action="multiselect"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg><span>多选</span></div>
+        <div class="ctx-menu-item ctx-menu-danger" data-action="delete"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg><span>删除</span></div>
+    `;
+    document.querySelector('.phone-body').appendChild(cm);
+}
+
+let contextTargetMsg = null; // 当前长按目标消息
+let longPressTimer = null;
+let contextMenuShown = false;
+
+// 多选状态
+let multiSelectMode = false;
+let selectedMsgs = new Set();
+
+// 收藏列表
+let favorites = JSON.parse(localStorage.getItem('chat_favorites') || '[]');
+
+// 引用状态
+let quoteTarget = null;
+
+// ===== 获取消息气泡的纯文本 =====
+function getBubbleText(bubble) {
+    if (!bubble) return '';
+    return bubble.textContent || bubble.innerText || '';
+}
+
+function getBubbleHTML(bubble) {
+    if (!bubble) return '';
+    return bubble.innerHTML || '';
+}
+
+// 通过消息DOM获取消息数据
+function getMessageFromEl(el) {
+    const msgDiv = el.closest('.message');
+    if (!msgDiv) return null;
+    const id = msgDiv.dataset.id;
+    return STATE.messages.find(m => m.id === id) || null;
+}
+
+// ===== 长按事件处理 =====
+function attachLongPress(msgDiv) {
+    const bubble = msgDiv.querySelector('.message-bubble');
+    if (!bubble) return;
+    if (bubble.dataset.longPressAttached === '1') return;
+    bubble.dataset.longPressAttached = '1';
+
+    bubble.addEventListener('touchstart', (e) => {
+        if (multiSelectMode) return;
+        longPressTimer = setTimeout(() => {
+            showContextMenu(msgDiv, bubble, e);
+        }, 500);
+    }, { passive: true });
+
+    bubble.addEventListener('touchend', () => {
+        clearTimeout(longPressTimer);
+    });
+
+    bubble.addEventListener('touchmove', () => {
+        clearTimeout(longPressTimer);
+    });
+
+    // PC端右键菜单
+    bubble.addEventListener('contextmenu', (e) => {
+        if (multiSelectMode) return;
+        e.preventDefault();
+        showContextMenu(msgDiv, bubble, e);
+    });
+}
+
+function showContextMenu(msgDiv, bubble, event) {
+    if (contextMenuShown) {
+        hideContextMenu();
+        return;
+    }
+    contextTargetMsg = msgDiv;
+    contextMenuShown = true;
+
+    // 获取触摸/点击坐标
+    let clientX, clientY;
+    if (event.touches && event.touches.length > 0) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    } else {
+        clientX = event.clientX || event.pageX;
+        clientY = event.clientY || event.pageY;
+    }
+
+    // 定位菜单 - 在手机body内
+    const phoneBody = document.querySelector('.phone-body');
+    const phoneRect = phoneBody.getBoundingClientRect();
+    const menuW = 170;
+    const menuH = 320;
+    let left = clientX - phoneRect.left;
+    let top = clientY - phoneRect.top;
+
+    if (left + menuW > phoneRect.width) left = phoneRect.width - menuW - 8;
+    if (top + menuH > phoneRect.height) top = clientY - phoneRect.top - menuH - 10;
+    if (left < 8) left = 8;
+    if (top < 60) top = 60;
+
+    contextMenu.style.left = left + 'px';
+    contextMenu.style.top = top + 'px';
+    contextMenu.classList.add('show');
+
+    // 高亮当前气泡
+    msgDiv.style.zIndex = '30';
+    msgDiv.querySelector('.message-bubble')?.classList.add('screenshot-flash');
+
+    // 点击其他地方关闭
+    setTimeout(() => {
+        document.addEventListener('click', hideContextMenuOnClick, { once: true });
+        document.addEventListener('touchend', hideContextMenuOnTouch, { once: true });
+    }, 100);
+}
+
+function hideContextMenu() {
+    contextMenu.classList.remove('show');
+    contextMenuShown = false;
+    if (contextTargetMsg) {
+        contextTargetMsg.style.zIndex = '';
+        contextTargetMsg.querySelector('.message-bubble')?.classList.remove('screenshot-flash');
+        contextTargetMsg = null;
+    }
+}
+
+function hideContextMenuOnClick(e) {
+    if (!contextMenu.contains(e.target)) {
+        hideContextMenu();
+    } else {
+        document.addEventListener('click', hideContextMenuOnClick, { once: true });
+    }
+}
+
+function hideContextMenuOnTouch(e) {
+    if (!contextMenu.contains(e.target)) {
+        hideContextMenu();
+    } else {
+        document.addEventListener('touchend', hideContextMenuOnTouch, { once: true });
+    }
+}
+
+// ===== 上下文菜单动作 =====
+contextMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.ctx-menu-item');
+    if (!item) return;
+    const action = item.dataset.action;
+    const msgDiv = contextTargetMsg;
+    hideContextMenu();
+
+    if (!msgDiv) return;
+
+    switch (action) {
+        case 'copy': copyMessage(msgDiv); break;
+        case 'forward': forwardMessage(msgDiv); break;
+        case 'quote': quoteMessage(msgDiv); break;
+        case 'favorite': favoriteMessage(msgDiv); break;
+        case 'screenshot': screenshotBubble(msgDiv); break;
+        case 'edit': editBubble(msgDiv); break;
+        case 'multiselect': enterMultiSelect(msgDiv); break;
+        case 'delete': deleteMessage(msgDiv); break;
+    }
+});
+
+// ===== 1. 复制 =====
+function copyMessage(msgDiv) {
+    const text = getBubbleText(msgDiv.querySelector('.message-bubble'));
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast('已复制'));
+    } else {
+        // fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('已复制'); } catch (ee) { showToast('复制失败', 2000); }
+        document.body.removeChild(ta);
+    }
+}
+
+// ===== 2. 转发 =====
+function forwardMessage(msgDiv) {
+    const text = getBubbleText(msgDiv.querySelector('.message-bubble'));
+    if (!text) return;
+
+    // 创建转发对话框
+    const overlay = document.createElement('div');
+    overlay.className = 'forward-overlay';
+    overlay.innerHTML = `
+        <div class="forward-dialog">
+            <div class="forward-dialog-title">转发消息</div>
+            <div class="forward-dialog-preview">${escapeHTML(text.substring(0, 200))}${text.length > 200 ? '...' : ''}</div>
+            <div class="forward-dialog-actions">
+                <button class="forward-dialog-btn cancel">取消</button>
+                <button class="forward-dialog-btn confirm">发送到当前对话</button>
+            </div>
+        </div>
+    `;
+    const phoneBody = document.querySelector('.phone-body');
+    phoneBody.appendChild(overlay);
+    setTimeout(() => overlay.classList.add('show'), 10);
+
+    overlay.querySelector('.cancel').addEventListener('click', () => {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 300);
+    });
+
+    overlay.querySelector('.confirm').addEventListener('click', () => {
+        overlay.classList.remove('show');
+        setTimeout(() => overlay.remove(), 300);
+        // 将消息作为用户消息发送
+        addMsg(`[转发] ${text}`, 'user');
+        // 触发AI回复
+        if (!STATE.isProcessing) {
+            setTimeout(() => handleSendForward(), 100);
+        }
+    });
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            overlay.classList.remove('show');
+            setTimeout(() => overlay.remove(), 300);
+        }
+    });
+}
+
+function escapeHTML(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function handleSendForward() {
+    if (STATE.isProcessing) return;
+    STATE.isProcessing = true;
+    showTyping();
+    callAI(STATE.messages.map(m => ({ role: m.role, content: m.content })))
+        .then(response => {
+            hideTyping();
+            const mid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+            const aiMsg = { id: mid, content: '', role: 'ai', time: getTime() };
+            const { avatarC1, avatarC2, avatarImage } = STATE.settings;
+            let avHtml;
+            if (avatarImage) {
+                avHtml = `<img src="${avatarImage}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+            } else {
+                avHtml = `<svg viewBox="0 0 40 40" width="32" height="32"><defs><linearGradient id="ast_fw_${mid.slice(0,6)}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:${avatarC1}"/><stop offset="100%" style="stop-color:${avatarC2}"/></linearGradient></defs><circle cx="20" cy="20" r="20" fill="url(#ast_fw_${mid.slice(0,6)})"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">AI</text></svg>`;
+            }
+            const div = document.createElement('div');
+            div.className = 'message ai';
+            div.dataset.id = mid;
+            div.innerHTML = `<div class="message-avatar">${avHtml}</div><div class="message-content"><div class="message-bubble ai" id="sb_${mid}"></div><span class="message-time">${aiMsg.time}</span></div>`;
+            messagesArea.appendChild(div);
+            attachLongPress(div);
+            scrollBottom();
+
+            const bubble = document.getElementById(`sb_${mid}`);
+            let full = '';
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+            return (async () => {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buf += decoder.decode(value, { stream: true });
+                    const lines = buf.split('\n');
+                    buf = lines.pop() || '';
+                    for (const line of lines) {
+                        const t = line.trim();
+                        if (!t || !t.startsWith('data: ')) continue;
+                        const d = t.slice(6);
+                        if (d === '[DONE]') return;
+                        try { const p = JSON.parse(d); const delta = p.choices?.[0]?.delta?.content; if (delta) { full += delta; bubble.innerHTML = renderMD(full); scrollBottom(); } } catch (ee) { }
+                    }
+                }
+                if (buf) {
+                    const t = buf.trim();
+                    if (t.startsWith('data: ')) {
+                        const d = t.slice(6);
+                        if (d !== '[DONE]') {
+                            try { const p = JSON.parse(d); const delta = p.choices?.[0]?.delta?.content; if (delta) { full += delta; bubble.innerHTML = renderMD(full); } } catch (ee) { }
+                        }
+                    }
+                }
+                aiMsg.content = full;
+                STATE.messages.push(aiMsg);
+                scrollBottom();
+                STATE.isProcessing = false;
+                updateBtn();
+            })();
+        })
+        .catch(error => {
+            hideTyping();
+            showToast(error.message || '请求失败', 3000);
+            addMsg(`⚠️ 抱歉，发生错误：${error.message}`, 'ai');
+            STATE.isProcessing = false;
+            updateBtn();
+        });
+}
+
+// ===== 3. 引用 =====
+function quoteMessage(msgDiv) {
+    const text = getBubbleText(msgDiv.querySelector('.message-bubble'));
+    if (!text) return;
+    quoteTarget = { text: text.substring(0, 300), id: msgDiv.dataset.id };
+
+    // 在输入框上方显示引用预览
+    removeQuotePreview();
+    const preview = document.createElement('div');
+    preview.className = 'quote-preview-bar';
+    preview.id = 'quotePreviewBar';
+    preview.innerHTML = `
+        <span class="quote-preview-text">${escapeHTML(text.substring(0, 80))}${text.length > 80 ? '...' : ''}</span>
+        <button class="quote-preview-close" id="quotePreviewClose">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+        </button>
+    `;
+    const inputArea = document.querySelector('.input-area');
+    inputArea.parentNode.insertBefore(preview, inputArea);
+    document.getElementById('quotePreviewClose').addEventListener('click', removeQuotePreview);
+    showToast('已添加引用，输入内容后发送即可');
+}
+
+function removeQuotePreview() {
+    const preview = document.getElementById('quotePreviewBar');
+    if (preview) preview.remove();
+    quoteTarget = null;
+}
+
+function getQuoteHTML() {
+    if (!quoteTarget) return '';
+    return `<div class="quote-content">${escapeHTML(quoteTarget.text)}</div>`;
+}
+
+// ===== 4. 收藏 =====
+function favoriteMessage(msgDiv) {
+    const msg = getMessageFromEl(msgDiv);
+    if (!msg) return;
+
+    const exists = favorites.findIndex(f => f.id === msg.id);
+    if (exists >= 0) {
+        favorites.splice(exists, 1);
+        showToast('已取消收藏');
+    } else {
+        favorites.push({
+            id: msg.id,
+            content: msg.content,
+            role: msg.role,
+            time: msg.time,
+            savedAt: new Date().toISOString()
+        });
+        showToast('已收藏');
+    }
+    localStorage.setItem('chat_favorites', JSON.stringify(favorites));
+    renderFavorites();
+}
+
+function showFavoritesPanel() {
+    renderFavorites();
+    const panel = document.getElementById('favoritesPanel');
+    if (panel) panel.classList.add('show');
+}
+
+function hideFavoritesPanel() {
+    const panel = document.getElementById('favoritesPanel');
+    if (panel) panel.classList.remove('show');
+}
+
+function renderFavorites() {
+    const list = document.getElementById('favoritesList');
+    if (!list) return;
+    if (favorites.length === 0) {
+        list.innerHTML = '<div class="favorites-empty">暂无收藏消息</div>';
+    } else {
+        list.innerHTML = favorites.map((f, idx) => `
+            <div class="favorite-item" data-index="${idx}">
+                <div class="favorite-item-content">${escapeHTML(f.content.substring(0, 200))}${f.content.length > 200 ? '...' : ''}</div>
+                <div class="favorite-item-meta">
+                    <span>${f.role === 'ai' ? 'AI' : '我'} · ${f.time || ''}</span>
+                    <div class="favorite-item-actions">
+                        <button class="favorite-item-btn" data-action="send" data-index="${idx}">发送</button>
+                        <button class="favorite-item-btn danger" data-action="remove" data-index="${idx}">删除</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+        list.querySelectorAll('.favorite-item-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.index);
+                if (btn.dataset.action === 'send') {
+                    const f = favorites[idx];
+                    if (f) {
+                        hideFavoritesPanel();
+                        addMsg(f.content, f.role === 'ai' ? 'ai' : 'user');
+                    }
+                } else if (btn.dataset.action === 'remove') {
+                    favorites.splice(idx, 1);
+                    localStorage.setItem('chat_favorites', JSON.stringify(favorites));
+                    renderFavorites();
+                    showToast('已删除收藏');
+                }
+            });
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('closeFavorites');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', hideFavoritesPanel);
+    }
+});
+
+// 收藏按钮（可以在输入区添加一个收藏入口）
+// 通过三点菜单或输入框旁按钮进入收藏
+
+// ===== 5. 截图 =====
+function screenshotBubble(msgDiv) {
+    const bubble = msgDiv.querySelector('.message-bubble');
+    if (!bubble) return;
+
+    // 使用canvas截图
+    bubble.classList.add('screenshot-flash');
+    const rect = bubble.getBoundingClientRect();
+
+    // 使用html2canvas概念简化版 - clone后绘制到canvas
+    const cloned = bubble.cloneNode(true);
+    cloned.style.position = 'fixed';
+    cloned.style.left = '-9999px';
+    cloned.style.top = '0';
+    cloned.style.width = rect.width + 'px';
+    cloned.style.maxWidth = rect.width + 'px';
+    cloned.style.whiteSpace = 'pre-wrap';
+    cloned.style.wordBreak = 'break-word';
+    document.body.appendChild(cloned);
+
+    // 使用简易canvas渲染
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const scale = 2;
+    canvas.width = rect.width * scale;
+    canvas.height = rect.height * scale;
+    ctx.scale(scale, scale);
+
+    // 绘制背景
+    const style = getComputedStyle(bubble);
+    const bgColor = style.backgroundColor;
+    const borderRadius = parseFloat(style.borderRadius) || 18;
+    const textColor = style.color;
+
+    // 画圆角矩形
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, rect.width, rect.height, borderRadius);
+    ctx.fill();
+
+    // 画阴影
+    ctx.shadowColor = 'rgba(0,0,0,0.06)';
+    ctx.shadowBlur = 2;
+    ctx.shadowOffsetY = 1;
+
+    // 画文字
+    ctx.fillStyle = textColor;
+    ctx.font = '15px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif';
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    const text = getBubbleText(bubble);
+    const lines = wrapText(ctx, text, rect.width - 28, 15);
+    let y = 14;
+    lines.forEach(line => {
+        ctx.fillText(line, 14, y + 18);
+        y += 22;
+    });
+
+    // 下载截图
+    const link = document.createElement('a');
+    link.download = `chat_screenshot_${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    document.body.removeChild(cloned);
+    showToast('截图已保存');
+}
+
+function wrapText(ctx, text, maxWidth, fontSize) {
+    ctx.font = `15px -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif`;
+    const chars = text.split('');
+    const lines = [];
+    let cur = '';
+    for (let i = 0; i < chars.length; i++) {
+        const test = cur + chars[i];
+        if (ctx.measureText(test).width > maxWidth && cur.length > 0) {
+            lines.push(cur);
+            cur = chars[i];
+        } else {
+            cur = test;
+        }
+    }
+    if (cur) lines.push(cur);
+    return lines;
+}
+
+// ===== 6. 编辑气泡 =====
+function editBubble(msgDiv) {
+    const bubble = msgDiv.querySelector('.message-bubble');
+    if (!bubble) return;
+    const msg = getMessageFromEl(msgDiv);
+    if (!msg) return;
+
+    const overlay = document.getElementById('editBubbleOverlay');
+    const textarea = document.getElementById('editBubbleTextarea');
+    if (!overlay || !textarea) return;
+
+    textarea.value = msg.content;
+    overlay.classList.add('show');
+
+    const confirmBtn = document.getElementById('editBubbleConfirm');
+    const cancelBtn = document.getElementById('editBubbleCancel');
+
+    const closeEdit = () => {
+        overlay.classList.remove('show');
+    };
+
+    const confirmEdit = () => {
+        const newContent = textarea.value.trim();
+        if (!newContent) {
+            showToast('消息内容不能为空');
+            return;
+        }
+        msg.content = newContent;
+        bubble.innerHTML = msg.role === 'ai' ? renderMD(newContent) : escapeHTML(newContent);
+        closeEdit();
+        showToast('消息已更新');
+    };
+
+    // 移除旧事件（防止重复绑定）
+    confirmBtn.replaceWith(confirmBtn.cloneNode(true));
+    cancelBtn.replaceWith(cancelBtn.cloneNode(true));
+
+    document.getElementById('editBubbleConfirm').addEventListener('click', confirmEdit);
+    document.getElementById('editBubbleCancel').addEventListener('click', closeEdit);
+
+    // ESC关闭
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeEdit();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    setTimeout(() => textarea.focus(), 200);
+}
+
+// ===== 7. 多选 =====
+function enterMultiSelect(msgDiv) {
+    multiSelectMode = true;
+    selectedMsgs.clear();
+    if (msgDiv) {
+        selectedMsgs.add(msgDiv.dataset.id);
+    }
+
+    const bar = document.getElementById('multiselectBar');
+    if (bar) bar.classList.add('show');
+
+    document.querySelectorAll('#messagesArea .message').forEach(m => {
+        m.classList.add('multiselect-mode');
+        // 添加选择圆圈
+        if (!m.querySelector('.message-select-check')) {
+            const check = document.createElement('div');
+            check.className = 'message-select-check';
+            check.innerHTML = '<div class="message-select-check-inner"></div>';
+            const content = m.querySelector('.message-content');
+            if (content) {
+                if (m.classList.contains('user')) {
+                    m.insertBefore(check, m.firstChild);
+                } else {
+                    m.insertBefore(check, content);
+                }
+            }
+        }
+        updateSelectUI(m);
+    });
+
+    updateMultiSelectCount();
+    showToast('多选模式已开启，点击消息选择');
+}
+
+function exitMultiSelect() {
+    multiSelectMode = false;
+    selectedMsgs.clear();
+
+    const bar = document.getElementById('multiselectBar');
+    if (bar) bar.classList.remove('show');
+
+    document.querySelectorAll('#messagesArea .message').forEach(m => {
+        m.classList.remove('multiselect-mode', 'selected');
+        const check = m.querySelector('.message-select-check');
+        if (check) check.remove();
+    });
+}
+
+function updateSelectUI(msgDiv) {
+    if (selectedMsgs.has(msgDiv.dataset.id)) {
+        msgDiv.classList.add('selected');
+    } else {
+        msgDiv.classList.remove('selected');
+    }
+}
+
+function updateMultiSelectCount() {
+    const count = document.getElementById('multiselectCount');
+    if (count) count.textContent = `已选 ${selectedMsgs.size} 条`;
+}
+
+// 在消息区域代理点击处理多选
+messagesArea.addEventListener('click', (e) => {
+    if (!multiSelectMode) return;
+    const msgDiv = e.target.closest('.message');
+    if (!msgDiv) return;
+
+    // 切换选中状态
+    if (selectedMsgs.has(msgDiv.dataset.id)) {
+        selectedMsgs.delete(msgDiv.dataset.id);
+    } else {
+        selectedMsgs.add(msgDiv.dataset.id);
+    }
+    updateSelectUI(msgDiv);
+    updateMultiSelectCount();
+});
+
+// 多选工具栏按钮
+document.addEventListener('DOMContentLoaded', () => {
+    const cancelBtn = document.getElementById('multiselectCancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', exitMultiSelect);
+    }
+
+    const delBtn = document.getElementById('multiselectDelete');
+    if (delBtn) {
+        delBtn.addEventListener('click', () => {
+            if (selectedMsgs.size === 0) return;
+            if (!confirm(`确定删除选中的 ${selectedMsgs.size} 条消息？`)) return;
+
+            selectedMsgs.forEach(id => {
+                STATE.messages = STATE.messages.filter(m => m.id !== id);
+                const msgDiv = messagesArea.querySelector(`.message[data-id="${id}"]`);
+                if (msgDiv) msgDiv.remove();
+            });
+            exitMultiSelect();
+            showToast('已删除选中消息');
+        });
+    }
+
+    const favBtn = document.getElementById('multiselectFavorite');
+    if (favBtn) {
+        favBtn.addEventListener('click', () => {
+            if (selectedMsgs.size === 0) return;
+            selectedMsgs.forEach(id => {
+                const msg = STATE.messages.find(m => m.id === id);
+                if (msg && !favorites.find(f => f.id === msg.id)) {
+                    favorites.push({
+                        id: msg.id,
+                        content: msg.content,
+                        role: msg.role,
+                        time: msg.time,
+                        savedAt: new Date().toISOString()
+                    });
+                }
+            });
+            localStorage.setItem('chat_favorites', JSON.stringify(favorites));
+            showToast(`已收藏 ${selectedMsgs.size} 条消息`);
+            exitMultiSelect();
+        });
+    }
+});
+
+// ===== 8. 删除 =====
+function deleteMessage(msgDiv) {
+    const msg = getMessageFromEl(msgDiv);
+    if (!msg) return;
+    if (!confirm('确定删除这条消息？')) return;
+
+    STATE.messages = STATE.messages.filter(m => m.id !== msg.id);
+    msgDiv.style.transition = 'all 0.3s ease';
+    msgDiv.style.opacity = '0';
+    msgDiv.style.transform = 'scale(0.8)';
+    setTimeout(() => msgDiv.remove(), 300);
+    showToast('消息已删除');
+}
+
+// ===== 为所有消息附加长按 =====
+function attachLongPressToAll() {
+    messagesArea.querySelectorAll('.message').forEach(m => attachLongPress(m));
+}
+
+// 消息渲染后自动附加长按
+const origRenderMsg = renderMsg;
+renderMsg = function(msg) {
+    origRenderMsg(msg);
+    // 延迟附加长按（等待DOM插入）
+    setTimeout(() => {
+        const el = messagesArea.querySelector(`.message[data-id="${msg.id}"]`);
+        if (el) attachLongPress(el);
+    }, 50);
+};
+
+// 初始附加
+setTimeout(attachLongPressToAll, 100);
+
+// ===== 修改发送逻辑以支持引用 =====
+const origHandleSend = handleSend;
+handleSend = async function() {
+    if (quoteTarget) {
+        const quoteHTML = getQuoteHTML();
+        const text = messageInput.value.trim();
+        if (!text || STATE.isProcessing) return;
+        closeEmojiPanel();
+        
+        const msg = { id: Date.now().toString(36)+Math.random().toString(36).substr(2,5), content: text, role: 'user', time: getTime(), quoted: quoteTarget.text };
+        STATE.messages.push(msg);
+        
+        const { userAvatarC1, userAvatarC2, userAvatarImage } = STATE.settings;
+        const d = document.createElement('div');
+        d.className = 'message user';
+        d.dataset.id = msg.id;
+        const bubbleHTML = quoteHTML + escapeHTML(text);
+        const avHTML = userAvatarImage 
+            ? `<img src="${userAvatarImage}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+            : `<svg viewBox="0 0 40 40" width="32" height="32"><defs><linearGradient id="uq_${msg.id.slice(0,6)}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:${userAvatarC1}"/><stop offset="100%" style="stop-color:${userAvatarC2}"/></linearGradient></defs><circle cx="20" cy="20" r="20" fill="url(#uq_${msg.id.slice(0,6)})"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">我</text></svg>`;
+        d.innerHTML = `<div class="message-content"><div class="message-bubble user">${bubbleHTML}</div><span class="message-time">${msg.time}</span></div><div class="message-avatar user-avatar">${avHTML}</div>`;
+        messagesArea.appendChild(d);
+        attachLongPress(d);
+        scrollBottom();
+        
+        messageInput.value = '';
+        removeQuotePreview();
+        updateBtn();
+        STATE.isProcessing = true;
+        showTyping();
+        
+        try {
+            const response = await callAI(STATE.messages.map(m=>({role:m.role,content:m.content})));
+            hideTyping();
+            // ... same streaming logic as handleSend
+            const mid = Date.now().toString(36)+Math.random().toString(36).substr(2,5);
+            const aiMsg = { id:mid, content:'', role:'ai', time:getTime() };
+            const { avatarC1, avatarC2, avatarImage } = STATE.settings;
+            let avHtml2;
+            if (avatarImage) {
+                avHtml2 = `<img src="${avatarImage}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+            } else {
+                avHtml2 = `<svg viewBox="0 0 40 40" width="32" height="32"><defs><linearGradient id="ast_q_${mid.slice(0,6)}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:${avatarC1}"/><stop offset="100%" style="stop-color:${avatarC2}"/></linearGradient></defs><circle cx="20" cy="20" r="20" fill="url(#ast_q_${mid.slice(0,6)})"/><text x="20" y="25" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">AI</text></svg>`;
+            }
+            const div2 = document.createElement('div');
+            div2.className = 'message ai';
+            div2.dataset.id = mid;
+            div2.innerHTML = `<div class="message-avatar">${avHtml2}</div><div class="message-content"><div class="message-bubble ai" id="sb_${mid}"></div><span class="message-time">${aiMsg.time}</span></div>`;
+            messagesArea.appendChild(div2);
+            attachLongPress(div2);
+            scrollBottom();
+
+            const bubble = document.getElementById(`sb_${mid}`);
+            let full = '';
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop() || '';
+                for (const line of lines) {
+                    const t = line.trim();
+                    if (!t || !t.startsWith('data: ')) continue;
+                    const d = t.slice(6);
+                    if (d === '[DONE]') break;
+                    try { const p=JSON.parse(d); const delta=p.choices?.[0]?.delta?.content; if (delta) { full+=delta; bubble.innerHTML=renderMD(full); scrollBottom(); } } catch(ee) {}
+                }
+            }
+            if (buf) {
+                const t=buf.trim();
+                if (t.startsWith('data: ')) { const d=t.slice(6); if(d!=='[DONE]'){try{const p=JSON.parse(d);const delta=p.choices?.[0]?.delta?.content;if(delta){full+=delta;bubble.innerHTML=renderMD(full);}}catch(ee){}} }
+            }
+            aiMsg.content = full;
+            STATE.messages.push(aiMsg);
+            scrollBottom();
+        } catch (error) {
+            hideTyping();
+            showToast(error.message || '请求失败', 3000);
+            addMsg(`⚠️ 抱歉，发生错误：${error.message}`, 'ai');
+        } finally {
+            STATE.isProcessing = false;
+            updateBtn();
+        }
+        return;
+    }
+    return origHandleSend();
 };
 updateStatusColor();

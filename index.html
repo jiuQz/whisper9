@@ -184,6 +184,11 @@
                                 <div class="header-status">在线</div>
                             </div>
                         </div>
+                        <button class="header-btn" id="favoritesBtn" title="收藏消息" style="margin-right:2px">
+                            <svg viewBox="0 0 24 24" width="21" height="21">
+                                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                            </svg>
+                        </button>
                         <button class="header-btn" id="chatSettingsBtn">
                             <svg viewBox="0 0 24 24" width="22" height="22">
                                 <circle cx="12" cy="5" r="2" fill="currentColor"/>
@@ -204,6 +209,18 @@
                             <div class="message-content ai">
                                 <div class="message-bubble ai">👋 你好！我是 AI 智能助手，有什么可以帮你的吗？</div>
                                 <span class="message-time">刚刚</span>
+                            </div>
+                        </div>
+                        <!-- 收藏消息面板 -->
+                        <div class="favorites-panel" id="favoritesPanel">
+                            <div class="favorites-panel-header">
+                                <span>⭐ 收藏的消息</span>
+                                <button class="close-favorites" id="closeFavorites">
+                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+                                </button>
+                            </div>
+                            <div class="favorites-list" id="favoritesList">
+                                <div class="favorites-empty">暂无收藏消息</div>
                             </div>
                         </div>
                     </div>
@@ -918,5 +935,66 @@
     <div class="toast" id="toast"></div>
 
     <script src="script.js"></script>
+    <!-- 聊天气泡长按菜单 -->
+    <div class="bubble-context-menu" id="bubbleContextMenu">
+        <div class="ctx-menu-item" data-action="copy">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>
+            <span>复制</span>
+        </div>
+        <div class="ctx-menu-item" data-action="forward">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm4 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-.5 11.5L17 19l-4.5-4.5H15v-5h2v5h2.5z" fill="currentColor"/></svg>
+            <span>转发</span>
+        </div>
+        <div class="ctx-menu-item" data-action="quote">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 17h3l2-4V7H5v6h3l-2 4zm8 0h3l2-4V7h-6v6h3l-2 4z" fill="currentColor"/></svg>
+            <span>引用</span>
+        </div>
+        <div class="ctx-menu-item" data-action="favorite">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor"/></svg>
+            <span>收藏</span>
+        </div>
+        <div class="ctx-menu-item" data-action="screenshot">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" fill="currentColor"/></svg>
+            <span>截图</span>
+        </div>
+        <div class="ctx-menu-item" data-action="edit">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/></svg>
+            <span>编辑</span>
+        </div>
+        <div class="ctx-menu-item" data-action="multiselect">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg>
+            <span>多选</span>
+        </div>
+        <div class="ctx-menu-item ctx-menu-danger" data-action="delete">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+            <span>删除</span>
+        </div>
+    </div>
+
+    <!-- 多选工具栏 -->
+    <div class="multiselect-bar" id="multiselectBar">
+        <button class="multiselect-cancel-btn" id="multiselectCancel">取消</button>
+        <span class="multiselect-count" id="multiselectCount">已选 0 条</span>
+        <div class="multiselect-actions">
+            <button class="multiselect-action-btn" id="multiselectDelete" title="批量删除">
+                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
+            </button>
+            <button class="multiselect-action-btn" id="multiselectFavorite" title="批量收藏">
+                <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="currentColor"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 气泡编辑弹窗 -->
+    <div class="edit-bubble-overlay" id="editBubbleOverlay">
+        <div class="edit-bubble-dialog">
+            <div class="edit-bubble-title">编辑消息</div>
+            <textarea class="edit-bubble-textarea" id="editBubbleTextarea" rows="4" placeholder="编辑消息内容..."></textarea>
+            <div class="edit-bubble-actions">
+                <button class="edit-bubble-btn cancel" id="editBubbleCancel">取消</button>
+                <button class="edit-bubble-btn confirm" id="editBubbleConfirm">确认修改</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
