@@ -37,8 +37,6 @@ const pageWeather = $('pageWeather');
 const pageNotes = $('pageNotes');
 const pageClock = $('pageClock');
 const messagesArea = $('messagesArea');
-const messageInput = $('messageInput');
-const sendBtn = $('sendBtn');
 const toast = $('toast');
 
 // ===== 壁纸渐变预设 =====
@@ -410,7 +408,13 @@ const pageMap = { chat: pageChat, settings: pageSettings, theme: pageTheme, chat
 document.querySelectorAll('.app-icon[data-app]').forEach(icon => {
     icon.addEventListener('click', () => {
         const app = icon.dataset.app;
-        if (app === 'chat') { openApp('chat'); setTimeout(() => messageInput.focus(), 400); }
+        if (app === 'chat') {
+            openApp('chat');
+            setTimeout(() => {
+                const inp = $('messageInput');
+                if (inp) inp.focus();
+            }, 400);
+        }
         else if (app === 'settings') { openApp('settings'); }
         else if (app === 'theme') { loadThemeUI(); openApp('theme'); }
         else if (pageMap[app]) { openApp(app); }
@@ -1103,8 +1107,11 @@ function recallMessage(msg) {
                 const reEditBtn = tip.querySelector('.re-edit-btn');
                 reEditBtn.addEventListener('click', (e) => {
                     e.preventDefault();
-                    messageInput.value = msg.content;
-                    messageInput.focus();
+                    const inp = $('messageInput');
+                    if(inp) {
+                        inp.value = msg.content;
+                        inp.focus();
+                    }
                     updateBtn();
                 });
             } else {
@@ -1287,7 +1294,8 @@ if ($('closeFavorites')) {
 // ===== 覆盖 handleSend 以支持引用 + 后台消息生成 + 通知弹窗 =====
 const origHandleSend = handleSend;
 handleSend = async function() {
-    const text = messageInput.value.trim();
+    const inp = $('messageInput');
+    const text = inp ? inp.value.trim() : '';
     if (!text || STATE.isProcessing) return;
     closeEmojiPanel();
     
@@ -1300,12 +1308,12 @@ handleSend = async function() {
     // 如果有引用，在消息前添加引用格式
     if (quoteTarget) {
         const quotedContent = quoteTarget.content.length > 50 ? quoteTarget.content.slice(0, 50) + '...' : quoteTarget.content;
-        messageInput.value = `> ${quotedContent}\n${text}`;
+        $('messageInput').value = `> ${quotedContent}\n${text}`;
         clearQuote();
     }
-    
-    addMsg(messageInput.value || text, 'user');
-    messageInput.value = '';
+
+    addMsg($('messageInput').value || text, 'user');
+    $('messageInput').value = '';
     updateBtn();
     STATE.isProcessing = true;
     showTyping();
@@ -1995,11 +2003,12 @@ async function callAI(messages) {
 }
 
 async function handleSend() {
-    const text = messageInput.value.trim();
+    const inp = $('messageInput');
+    const text = inp ? inp.value.trim() : '';
     if (!text || STATE.isProcessing) return;
     closeEmojiPanel();
     addMsg(text, 'user');
-    messageInput.value = '';
+    $('messageInput').value = '';
     updateBtn();
     STATE.isProcessing = true;
     showTyping();
@@ -2059,10 +2068,26 @@ async function handleSend() {
 }
 
 // ===== 发送按钮 =====
-function updateBtn() { sendBtn.classList.toggle('active', messageInput.value.trim().length > 0 && !STATE.isProcessing); }
-sendBtn.addEventListener('click', handleSend);
-messageInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } });
-messageInput.addEventListener('input', updateBtn);
+function updateBtn() {
+    const inp = $('messageInput');
+    const sBtn = $('sendBtn');
+    if (!inp || !sBtn) return;
+    sBtn.classList.toggle('active', inp.value.trim().length > 0 && !STATE.isProcessing);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const sBtn = $('sendBtn');
+    if(sBtn) sBtn.addEventListener('click', handleSend);
+});
+
+// 这里改到 DOMContentLoaded 绑定的方式更安全
+document.addEventListener('DOMContentLoaded', () => {
+    const inp = $('messageInput');
+    if (inp) {
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } });
+        inp.addEventListener('input', updateBtn);
+    }
+});
 
 // ===== 表情 =====
 const EMOJIS = ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','💀','☠️','👻','👽','🤖','💩','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🙌','👏','👍','👎','👊','✊','🤛','🤜','🤞','✌️','🤟','🤘','👌','🤌','🤏','🫶','💪','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💕','💗','💖','💘','💝','💞','💓','🔥','✨','⭐','🌟','💫','⚡','🌈'];
@@ -2080,7 +2105,8 @@ function buildEmojis() {
 function openEmojiPanel() { $('emojiPicker').classList.add('active'); }
 function closeEmojiPanel() { $('emojiPicker').classList.remove('active'); }
 function insertEmoji(e) {
-    const inp = messageInput;
+    const inp = $('messageInput');
+    if (!inp) return;
     const s = inp.selectionStart || 0, en = inp.selectionEnd || 0;
     inp.value = inp.value.substring(0, s) + e + inp.value.substring(en);
     inp.selectionStart = inp.selectionEnd = s + e.length;
@@ -2929,7 +2955,8 @@ function selectAgent(agentId) {
     // 打开聊天页面
     openApp('chat');
     setTimeout(() => {
-        if (messageInput) messageInput.focus();
+        const inp = $('messageInput');
+        if (inp) inp.focus();
     }, 400);
 }
 
