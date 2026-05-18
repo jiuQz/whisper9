@@ -329,13 +329,21 @@ body {
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    overflow: hidden;
     flex-shrink: 0;
+}
+
+.header-avatar > svg,
+.header-avatar > img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
 }
 
 .online-dot {
     position: absolute;
-    bottom: 0; right: 0;
+    bottom: -1px; right: -1px;
     width: 10px; height: 10px;
     background: #34c759;
     border-radius: 50%;
@@ -401,21 +409,26 @@ body {
     line-height: 1.5;
     word-break: break-word;
     white-space: pre-wrap;
+    position: relative;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .message-bubble.ai {
-    background: #fff;
-    border-radius: 18px 18px 18px 4px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfd 100%);
+    border-radius: 20px 20px 20px 6px;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.05);
     color: #1a1a1a;
+    border: 0.5px solid rgba(0,0,0,0.04);
 }
 
 .message-bubble.user {
-    background: #007aff;
-    border-radius: 18px 18px 4px 18px;
+    background: linear-gradient(135deg, #0a84ff 0%, #0066d6 100%);
+    border-radius: 20px 20px 6px 20px;
     color: white;
-    box-shadow: 0 1px 2px rgba(0,122,255,0.2);
+    box-shadow: 0 1px 2px rgba(0,122,255,0.18), 0 6px 16px rgba(0,122,255,0.22);
 }
+
+.message-bubble:active { transform: scale(0.98); }
 
 .message-time { font-size: 11px; color: #8e8e93; margin-top: 4px; padding: 0 4px; }
 
@@ -497,11 +510,11 @@ body {
 
 .input-wrapper {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 6px;
     background: #f2f2f7;
     border-radius: 24px;
-    padding: 2px 4px 2px 6px;
+    padding: 6px 4px 6px 6px;
     border: 1px solid rgba(0,0,0,0.04);
     transition: border-color 0.2s;
 }
@@ -520,6 +533,7 @@ body {
     justify-content: center;
     transition: all 0.2s;
     flex-shrink: 0;
+    margin-bottom: 2px;
 }
 
 .input-action-btn:hover { color: #007aff; background: rgba(0,122,255,0.08); }
@@ -555,9 +569,63 @@ body {
     flex-shrink: 0;
     opacity: 0.4;
     transform: scale(0.9);
+    margin-bottom: 2px;
 }
 
 .send-btn.active { opacity: 1; transform: scale(1); }
+
+/* ===== 代理媒体消息样式 ===== */
+.proxy-voice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 100px;
+    cursor: pointer;
+}
+.proxy-voice-icon {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+}
+.proxy-voice-bar {
+    width: 3px;
+    height: 12px;
+    background: currentColor;
+    border-radius: 2px;
+}
+.proxy-voice.playing .proxy-voice-bar {
+    animation: voicePlay 1s infinite ease-in-out;
+}
+.proxy-voice-bar:nth-child(2) { animation-delay: 0.2s; height: 16px; }
+.proxy-voice-bar:nth-child(3) { animation-delay: 0.4s; height: 10px; }
+@keyframes voicePlay {
+    0%, 100% { transform: scaleY(0.8); }
+    50% { transform: scaleY(1.2); }
+}
+
+.proxy-image {
+    max-width: 220px;
+    border-radius: 12px;
+    overflow: hidden;
+    display: block;
+    cursor: pointer;
+}
+.proxy-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.proxy-emoji {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+}
+.message-bubble.media-transparent {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
 .send-btn:hover { background: #0066d6; }
 .send-btn:active { transform: scale(0.85); }
 
@@ -1443,6 +1511,27 @@ body[data-global-theme="midnight"] .notification-banner .notif-time { color: #98
 }
 
 .icon-color-item:last-child { border-bottom: none; }
+
+/* 图标预览（主题页每行图标自定义的实时预览） */
+.icon-preview {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1.5px solid #1a1a1a;
+    background: #fff;
+    flex-shrink: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: all 0.2s;
+    overflow: hidden;
+}
+.icon-preview.no-stroke {
+    border-color: transparent;
+}
+.icon-preview.shape-circle { border-radius: 50%; }
+.icon-preview.shape-square { border-radius: 4px; }
+.icon-preview.shape-rounded { border-radius: 10px; }
 
 .icon-color-name {
     font-size: 15px;
@@ -2549,6 +2638,8 @@ body.hide-custom-icon-text .app-icon.icon-customized .app-icon-name {
     text-align: center;
     box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     animation: scaleIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    max-height: 80vh;
+    overflow-y: auto;
 }
 @keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
@@ -2601,6 +2692,52 @@ body.hide-custom-icon-text .app-icon.icon-customized .app-icon-name {
 }
 .shake-btn.cancel { background: #f0f0f0; color: #333; }
 .shake-btn.confirm { background: #007aff; color: #fff; }
+/* 摇一摇选填字段（性别/种族/性格） */
+.shake-extra-section {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    text-align: left;
+}
+.shake-field-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+.shake-extra-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-top: 4px;
+}
+.shake-extra-input:focus {
+    border-color: #007aff;
+}
+body[data-global-theme="midnight"] .shake-extra-input { background: #1c1c1e; border-color: #38383a; color: #fff; }
+body[data-global-theme="midnight"] .shake-extra-input:focus { border-color: #0a84ff; }
+body[data-global-theme="midnight"] .shake-field-label { color: #aaa; }
+
+/* 摇一摇API配置 */
+.shake-api-section { margin: 12px 0 16px; text-align: left; }
+.shake-api-title { font-size: 13px; color: #666; font-weight: 500; margin-bottom: 6px; }
+.shake-api-hint { font-size: 11px; color: #aaa; font-weight: normal; }
+.shake-api-fields { display: flex; flex-direction: column; gap: 6px; }
+.shake-api-input { width: 100%; padding: 8px 10px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 13px; background: #fafafa; outline: none; box-sizing: border-box; transition: border-color .2s; }
+.shake-api-input:focus { border-color: #007aff; }
+.shake-api-btn { padding: 6px 12px; background: #007aff; color: #fff; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.shake-api-btn:active { opacity: 0.8; }
+.shake-api-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.shake-api-btn.danger { background: #ff3b30; }
+body[data-global-theme="midnight"] .shake-api-title { color: #aaa; }
+body[data-global-theme="midnight"] .shake-api-hint { color: #636366; }
+body[data-global-theme="midnight"] .shake-api-input { background: #1c1c1e; border-color: #38383a; color: #fff; }
+body[data-global-theme="midnight"] .shake-api-input:focus { border-color: #0a84ff; }
+
 
 /* 结果卡片 */
 .shake-anim-box {
@@ -3634,3 +3771,534 @@ body[data-global-theme="midnight"] .wallpaper-item.active { box-shadow: 0 0 0 2p
 body[data-global-theme="mint"] .global-theme-item.active,
 body[data-global-theme="mint"] .theme-preset-item.active,
 body[data-global-theme="mint"] .wallpaper-item.active { box-shadow: 0 0 0 2px #2a8e5e; }
+
+
+/* ===== 图标描边控制 ===== */
+body.no-icon-stroke .app-icon-bg {
+    border-color: transparent !important;
+}
+
+/* 暮夜主题下图标预览适配 */
+body[data-global-theme="midnight"] .icon-preview {
+    border-color: #555;
+    background: #2a2a44;
+}
+body[data-global-theme="midnight"] .icon-preview.no-stroke {
+    border-color: transparent;
+}
+
+/* 薄荷主题下图标预览适配 */
+body[data-global-theme="mint"] .icon-preview {
+    border-color: #5a8a72;
+    background: #fff;
+}
+body[data-global-theme="mint"] .icon-preview.no-stroke {
+    border-color: transparent;
+}
+
+
+/* ===== 描边颜色色盘 ===== */
+.stroke-color-row {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+.stroke-color-palette {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+.stroke-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.stroke-swatch:hover {
+    transform: scale(1.15);
+}
+.stroke-swatch.active {
+    border-color: #007aff;
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px rgba(0,122,255,0.3);
+}
+.stroke-color-custom {
+    width: 28px;
+    height: 28px;
+    border: 2px dashed #c7c7cc;
+    border-radius: 50%;
+    cursor: pointer;
+    padding: 0;
+    background: conic-gradient(#ff3b30, #ff9500, #ffcc00, #34c759, #00c7be, #007aff, #5856d6, #af52de, #ff2d55, #ff3b30);
+    overflow: hidden;
+    -webkit-appearance: none;
+    appearance: none;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+.stroke-color-custom::-webkit-color-swatch-wrapper { padding: 0; }
+.stroke-color-custom::-webkit-color-swatch { border: none; border-radius: 50%; }
+.stroke-color-custom::-moz-color-swatch { border: none; border-radius: 50%; }
+.stroke-color-custom:hover { transform: scale(1.15); }
+.stroke-color-custom.active {
+    border: 2px solid #007aff;
+    box-shadow: 0 0 0 2px rgba(0,122,255,0.3);
+}
+
+/* 暮夜主题下描边色盘适配 */
+body[data-global-theme="midnight"] .stroke-swatch.active {
+    border-color: #7ea3ff;
+    box-shadow: 0 0 0 2px rgba(126,163,255,0.3);
+}
+body[data-global-theme="midnight"] .stroke-color-custom.active {
+    border-color: #7ea3ff;
+    box-shadow: 0 0 0 2px rgba(126,163,255,0.3);
+}
+
+/* 薄荷主题下描边色盘适配 */
+body[data-global-theme="mint"] .stroke-swatch.active {
+    border-color: #2a8e5e;
+    box-shadow: 0 0 0 2px rgba(42,142,94,0.3);
+}
+body[data-global-theme="mint"] .stroke-color-custom.active {
+    border-color: #2a8e5e;
+    box-shadow: 0 0 0 2px rgba(42,142,94,0.3);
+}
+
+/* ===== 微信风格圆圈+按钮 & 下拉菜单 ===== */
+.agents-online-mode-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.agents-online-mode-label {
+    font-size: 12px;
+    color: #007aff;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.agents-online-switch {
+    transform: scale(0.82);
+    transform-origin: center;
+}
+
+body[data-global-theme="mint"] .agents-online-mode-label {
+    color: #2a8e5e;
+}
+
+body[data-global-theme="midnight"] .agents-online-mode-label {
+    color: #7ea3ff;
+}
+
+.wechat-plus-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.wechat-plus-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.wechat-plus-btn:hover {
+    background: rgba(0,122,255,0.08);
+}
+.wechat-plus-btn:active {
+    transform: scale(0.9);
+}
+.wechat-plus-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: #2c2c2e;
+    border-radius: 10px;
+    min-width: 140px;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    overflow: hidden;
+    animation: ctxMenuIn 0.2s ease-out;
+}
+.wechat-dd-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s;
+    user-select: none;
+    white-space: nowrap;
+}
+.wechat-dd-item:hover {
+    background: #3a3a3c;
+}
+.wechat-dd-item:active {
+    background: #48484a;
+}
+.wechat-dd-item + .wechat-dd-item {
+    border-top: 1px solid #3a3a3c;
+}
+.wechat-dd-item svg {
+    flex-shrink: 0;
+}
+
+/* 薄荷主题下微信下拉适配 */
+body[data-global-theme="mint"] .wechat-plus-dropdown {
+    background: #1e5c3f;
+}
+body[data-global-theme="mint"] .wechat-dd-item:hover {
+    background: #2a8e5e;
+}
+body[data-global-theme="mint"] .wechat-dd-item + .wechat-dd-item {
+    border-top-color: #2a8e5e;
+}
+
+/* 暮夜主题下微信下拉适配 */
+body[data-global-theme="midnight"] .wechat-plus-dropdown {
+    background: #2a2a44;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+body[data-global-theme="midnight"] .wechat-dd-item:hover {
+    background: #38385a;
+}
+body[data-global-theme="midnight"] .wechat-dd-item + .wechat-dd-item {
+    border-top-color: #38385a;
+}
+
+
+
+/* =========================================================
+   气泡风格预设 (data-bubble-style)
+   挂在 #pageChat 上，覆盖默认气泡
+   ========================================================= */
+
+/* 自定义气泡颜色（CSS 变量） */
+.page-chat[data-bubble-custom="1"] .message-bubble.user {
+    background: var(--bubble-user-bg, #0a84ff);
+    color: var(--bubble-user-text, #ffffff);
+}
+.page-chat[data-bubble-custom="1"] .message-bubble.ai {
+    background: var(--bubble-ai-bg, #ffffff);
+    color: var(--bubble-ai-text, #1a1a1a);
+}
+
+/* === 风格 1：classic（圆润经典，与默认相同但更厚重） === */
+.page-chat[data-bubble-style="classic"] .message-bubble.ai {
+    background: #ffffff;
+    border-radius: 20px 20px 20px 6px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 6px 18px rgba(0,0,0,0.06);
+    border: 0.5px solid rgba(0,0,0,0.05);
+}
+.page-chat[data-bubble-style="classic"] .message-bubble.user {
+    background: #0a84ff;
+    border-radius: 20px 20px 6px 20px;
+    box-shadow: 0 2px 6px rgba(10,132,255,0.25);
+}
+
+/* === 风格 2：gradient（彩色渐变，明亮活泼） === */
+.page-chat[data-bubble-style="gradient"]:not([data-bubble-custom="1"]) .message-bubble.ai {
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 100%);
+}
+.page-chat[data-bubble-style="gradient"] .message-bubble.ai {
+    border-radius: 22px 22px 22px 6px;
+    box-shadow: 0 2px 4px rgba(102,126,234,0.08), 0 8px 22px rgba(102,126,234,0.12);
+    color: #1a1a2e;
+}
+.page-chat[data-bubble-style="gradient"]:not([data-bubble-custom="1"]) .message-bubble.user {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+.page-chat[data-bubble-style="gradient"] .message-bubble.user {
+    border-radius: 22px 22px 6px 22px;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(118,75,162,0.32);
+}
+
+/* 结合自定义颜色产生简单的透明渐变效果 */
+.page-chat[data-bubble-style="gradient"][data-bubble-custom="1"] .message-bubble::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.1) 100%); pointer-events: none;
+}
+.page-chat[data-bubble-style="gradient"][data-bubble-custom="1"] .message-bubble { overflow: hidden; position: relative; }
+
+
+/* === 风格 3：glass（毛玻璃，半透明柔和） === */
+.page-chat[data-bubble-style="glass"]:not([data-bubble-custom="1"]) .message-bubble.ai {
+    background: rgba(255,255,255,0.65);
+}
+.page-chat[data-bubble-style="glass"] .message-bubble.ai {
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.45);
+    border-radius: 20px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    color: #1a1a1a;
+}
+.page-chat[data-bubble-style="glass"]:not([data-bubble-custom="1"]) .message-bubble.user {
+    background: linear-gradient(135deg, rgba(10,132,255,0.78), rgba(88,86,214,0.78));
+}
+.page-chat[data-bubble-style="glass"] .message-bubble.user {
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(10,132,255,0.32);
+}
+/* 自定义颜色下降低透明度让毛玻璃生效 */
+.page-chat[data-bubble-style="glass"][data-bubble-custom="1"] .message-bubble { opacity: 0.85; }
+
+/* === 风格 4：minimal（极简扁平，无阴影微圆角） === */
+.page-chat[data-bubble-style="minimal"]:not([data-bubble-custom="1"]) .message-bubble.ai {
+    background: #f0f0f3;
+}
+.page-chat[data-bubble-style="minimal"] .message-bubble.ai {
+    border-radius: 12px;
+    box-shadow: none;
+    border: none;
+    color: #1a1a1a;
+}
+.page-chat[data-bubble-style="minimal"]:not([data-bubble-custom="1"]) .message-bubble.user {
+    background: #1a1a1a;
+}
+.page-chat[data-bubble-style="minimal"] .message-bubble.user {
+    border-radius: 12px;
+    box-shadow: none;
+    color: #fff;
+}
+
+/* === 风格 5：candy（糖果色，可爱风） === */
+.page-chat[data-bubble-style="candy"]:not([data-bubble-custom="1"]) .message-bubble.ai {
+    background: linear-gradient(135deg, #fff5f8 0%, #fff 100%);
+}
+.page-chat[data-bubble-style="candy"] .message-bubble.ai {
+    border-radius: 24px 24px 24px 8px;
+    box-shadow: 0 3px 12px rgba(255,154,158,0.18);
+    border: 1px solid rgba(255,154,158,0.18);
+    color: #5a2a3a;
+}
+.page-chat[data-bubble-style="candy"]:not([data-bubble-custom="1"]) .message-bubble.user {
+    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+.page-chat[data-bubble-style="candy"] .message-bubble.user {
+    border-radius: 24px 24px 8px 24px;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(250,112,154,0.38);
+}
+
+/* =========================================================
+   聊天背景图片（CSS 变量，挂在 #pageChat）
+   ========================================================= */
+.page-chat[data-chat-bg="1"] .messages-area {
+    background-image: var(--chat-bg-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: local;
+    position: relative;
+}
+
+/* 背景图遮罩层（让气泡在浅色背景图上仍可读） */
+.page-chat[data-chat-bg="1"] .messages-area::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.18);
+    pointer-events: none;
+    z-index: 0;
+}
+.page-chat[data-chat-bg="1"] .messages-area > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* =========================================================
+   聊天设置页 - 气泡风格选择卡片
+   ========================================================= */
+.bubble-style-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.bubble-style-item {
+    cursor: pointer;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    overflow: hidden;
+    transition: all 0.2s;
+    background: #fff;
+}
+.bubble-style-item:hover { transform: translateY(-2px); }
+.bubble-style-item.active {
+    border-color: #007aff;
+    box-shadow: 0 0 0 1px white, 0 0 0 3px rgba(0,122,255,0.3);
+}
+.bubble-style-preview {
+    height: 76px;
+    position: relative;
+    overflow: hidden;
+    background: #f2f2f7;
+}
+.bubble-style-preview .bs-ai,
+.bubble-style-preview .bs-user {
+    position: absolute;
+    height: 16px;
+    border-radius: 10px;
+}
+.bubble-style-preview .bs-ai { left: 8px; top: 14px; width: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.bubble-style-preview .bs-user { right: 8px; top: 42px; width: 42%; background: #0a84ff; }
+.bubble-style-name {
+    text-align: center;
+    padding: 6px 4px;
+    font-size: 12px;
+    color: #1a1a1a;
+    font-weight: 500;
+    background: #fafafa;
+}
+
+/* 各风格的预览样式 */
+.bs-classic .bs-ai { background: #fff; border-radius: 10px 10px 10px 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.bs-classic .bs-user { background: #0a84ff; border-radius: 10px 10px 3px 10px; }
+
+.bs-gradient .bs-ai { background: linear-gradient(135deg, #fff, #f0f4ff); border-radius: 10px 10px 10px 3px; }
+.bs-gradient .bs-user { background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 10px 10px 3px 10px; }
+
+.bs-glass .bubble-style-preview { background: linear-gradient(135deg, #c2e9fb, #a1c4fd); }
+.bs-glass .bs-ai { background: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.5); }
+.bs-glass .bs-user { background: linear-gradient(135deg, rgba(10,132,255,0.8), rgba(88,86,214,0.8)); }
+
+.bs-minimal .bs-ai { background: #f0f0f3; border-radius: 6px; box-shadow: none; }
+.bs-minimal .bs-user { background: #1a1a1a; border-radius: 6px; }
+
+.bs-candy .bubble-style-preview { background: #fff5f8; }
+.bs-candy .bs-ai { background: #fff; border-radius: 12px 12px 12px 4px; border: 1px solid rgba(255,154,158,0.2); }
+.bs-candy .bs-user { background: linear-gradient(135deg, #fa709a, #fee140); border-radius: 12px 12px 4px 12px; }
+
+/* 暗夜全局主题下气泡卡片名称 */
+body[data-global-theme="midnight"] .bubble-style-name { background: #2a2a44; color: #e5e5ef; }
+body[data-global-theme="mint"] .bubble-style-name { background: #d3eee0; color: #1e5c3f; }
+
+/* =========================================================
+   自定义气泡颜色控件
+   ========================================================= */
+.bubble-color-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    gap: 10px;
+}
+.bubble-color-row:last-child { border-bottom: none; }
+.bubble-color-label {
+    font-size: 14px;
+    color: #1a1a1a;
+    font-weight: 500;
+}
+.bubble-color-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.bubble-color-pick {
+    width: 32px;
+    height: 32px;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+    background: transparent;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.12);
+    overflow: hidden;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.bubble-color-pick::-webkit-color-swatch-wrapper { padding: 0; }
+.bubble-color-pick::-webkit-color-swatch { border: none; border-radius: 6px; }
+.bubble-color-pick::-moz-color-swatch { border: none; border-radius: 6px; }
+
+.bubble-reset-btn {
+    padding: 6px 12px;
+    background: #f2f2f7;
+    color: #ff3b30;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.bubble-reset-btn:hover { background: #ffe5e5; }
+
+/* 聊天背景图预览缩略图 */
+.chat-bg-preview-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+}
+.chat-bg-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+    background: #f2f2f7;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c7c7cc;
+}
+.chat-bg-actions {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.chat-bg-btn {
+    padding: 8px 14px;
+    background: #007aff;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.chat-bg-btn:hover { background: #0066d6; }
+.chat-bg-btn:active { transform: scale(0.96); }
+.chat-bg-btn.danger {
+    background: #ffebee;
+    color: #ff3b30;
+}
+.chat-bg-btn.danger:hover { background: #ffd5d8; }
+
+/* 暗黑主题适配 */
+body[data-global-theme="midnight"] .bubble-color-label { color: #e5e5ef; }
+body[data-global-theme="midnight"] .bubble-color-row { border-bottom-color: rgba(255,255,255,0.06); }
+body[data-global-theme="midnight"] .bubble-reset-btn { background: #38385a; color: #ff7a7a; }
+body[data-global-theme="midnight"] .chat-bg-thumb { background: #2a2a44; border-color: #38385a; }
+body[data-global-theme="midnight"] .chat-bg-btn.danger { background: #3a1c1e; color: #ff7a7a; }
+body[data-global-theme="midnight"] .chat-bg-btn.danger:hover { background: #4a2326; }
+body[data-global-theme="mint"] .bubble-color-label { color: #1e5c3f; }
+body[data-global-theme="mint"] .bubble-reset-btn { background: #d3eee0; }
+body[data-global-theme="mint"] .chat-bg-btn { background: #2a8e5e; }
+body[data-global-theme="mint"] .chat-bg-btn:hover { background: #1e5c3f; }

@@ -37,17 +37,6 @@ window.AppRegistry.push({
                     </div>
 
                     <div class="messages-area" id="messagesArea">
-                        <div class="message welcome-message">
-                            <div class="message-avatar">
-                                <svg viewBox="0 0 40 40" width="32" height="32">
-                                    <circle cx="20" cy="20" r="20" fill="#667eea"/>
-                                </svg>
-                            </div>
-                            <div class="message-content ai">
-                                <div class="message-bubble ai">👋 你好！我是 AI 智能助手，有什么可以帮你的吗？</div>
-                                <span class="message-time">刚刚</span>
-                            </div>
-                        </div>
                         <div class="favorites-panel" id="favoritesPanel" style="display:none">
                             <div class="favorites-panel-header">
                                 <span>收藏消息</span>
@@ -62,20 +51,57 @@ window.AppRegistry.push({
                     </div>
 
                     <div class="input-area">
+                        <div class="input-mode-indicator" id="inputModeIndicator" style="display:none; background:var(--ios-blue); color:white; padding:4px 10px; border-radius:12px; font-size:12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span id="inputModeText">当前处于特定输入模式</span>
+                            <button id="cancelInputModeBtn" style="background:none; border:none; color:white; padding:0; display:flex;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                            </button>
+                        </div>
                         <div class="input-wrapper">
-                            <button class="input-action-btn" id="emojiBtn">
+                            <button class="input-action-btn" id="plusBtn">
+                                <svg viewBox="0 0 24 24" width="26" height="26">
+                                    <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                    <path d="M12 6v12M6 12h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <div class="input-field-wrapper">
+                                <textarea class="input-field" id="messageInput" placeholder="输入消息..." rows="1" style="resize:none; max-height:100px; padding:10px 4px; overflow-y:auto; line-height: 1.5; box-sizing: border-box;"></textarea>
+                            </div>
+                            <button class="input-action-btn" id="emojiBtn" style="margin-left: 4px;">
                                 <svg viewBox="0 0 24 24" width="24" height="24">
                                     <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" fill="currentColor"/>
                                 </svg>
                             </button>
-                            <div class="input-field-wrapper">
-                                <input type="text" class="input-field" id="messageInput" placeholder="输入消息..." autocomplete="off">
-                            </div>
-                            <button class="send-btn" id="sendBtn">
-                                <svg viewBox="0 0 24 24" width="22" height="22">
-                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="currentColor"/>
-                                </svg>
+                            <button class="send-btn" id="sendBtn" style="width: auto; padding: 0 12px; background: var(--ios-blue); color: white; border-radius: 16px; font-size: 14px; font-weight: 500; height: 32px; display: flex; align-items: center; justify-content: center; margin-left: 8px;">
+                                发送
                             </button>
+                        </div>
+                    </div>
+
+                    <div class="ext-panel" id="extPanel" style="display:none; background: var(--ios-bg); border-top: 1px solid var(--border-color); padding: 15px;">
+                        <div class="ext-grid" id="extGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">
+                            <div class="ext-item" id="extVoiceBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
+                                <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#007aff;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></div>
+                                <span style="font-size:12px; color:#8e8e93;">伪装语音</span>
+                            </div>
+                            <div class="ext-item" id="extImageBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
+                                <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#34c759;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+                                <span style="font-size:12px; color:#8e8e93;">文字图片</span>
+                            </div>
+                            <div class="ext-item" id="extCustomEmojiBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
+                                <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#ff9500;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></div>
+                                <span style="font-size:12px; color:#8e8e93;">自定义表情</span>
+                            </div>
+                        </div>
+                        <div class="custom-emoji-panel" id="customEmojiPanel" style="display:none; background:white; border-radius:12px; overflow:hidden;">
+                            <div class="custom-emoji-header" style="display:flex; justify-content:space-between; padding: 10px 15px; border-bottom:1px solid var(--border-color);">
+                                <button id="customEmojiBackBtn" style="background:none;border:none;color:var(--ios-blue);font-size:14px;padding:0;">返回</button>
+                                <span style="font-size:14px;font-weight:600;">自定义表情包</span>
+                                <button id="customEmojiAddBtn" style="background:none;border:none;color:var(--ios-blue);font-size:14px;padding:0;">添加</button>
+                            </div>
+                            <div class="custom-emoji-grid" id="customEmojiGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 15px; max-height: 200px; overflow-y:auto;">
+                                <!-- 自定义表情项在这里生成 -->
+                            </div>
                         </div>
                     </div>
 
@@ -212,19 +238,35 @@ window.AppRegistry.push({
                                 <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="#007aff"/>
                             </svg>
                         </button>
-                        <div class="header-center"><div class="header-name">微信</div></div>
-                        <button class="header-add-btn" id="agentAddBtn">
-                            <svg viewBox="0 0 24 24" width="24" height="24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" fill="#007aff"/></svg>
-                        </button>
+                        <div class="header-center"><div class="header-name">Uchat</div></div>
+                        <div class="agents-online-mode-wrap" title="线上模式：隔着手机聊天，去除动作神态">
+                            <span class="agents-online-mode-label">线上</span>
+                            <label class="ios-switch agents-online-switch">
+                                <input type="checkbox" id="onlineModeSwitch" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="wechat-plus-wrap" id="wechatPlusWrap">
+                            <button class="wechat-plus-btn" id="agentAddBtn">
+                                <svg viewBox="0 0 24 24" width="22" height="22">
+                                    <circle cx="12" cy="12" r="10.5" stroke="#007aff" stroke-width="1.5" fill="none"/>
+                                    <path d="M12 7.5v9M7.5 12h9" stroke="#007aff" stroke-width="1.5" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            <div class="wechat-plus-dropdown" id="wechatPlusDropdown" style="display:none">
+                                <div class="wechat-dd-item" id="ddAddAgent">
+                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="#fff"/></svg>
+                                    <span>添加好友</span>
+                                </div>
+                                <div class="wechat-dd-item" id="ddShakeAgent">
+                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 12c0 1.74.5 3.37 1.41 4.84l-1.2 3.56 3.66-1.14A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12zm4-1h4V7h4v4h4v4h-4v4h-4v-4H6v-4z" fill="#fff"/></svg>
+                                    <span>摇一摇</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="agents-search-bar">
                         <input type="text" class="agents-search-input" id="agentsSearchInput" placeholder="搜索..." autocomplete="off">
-                    </div>
-                    <!-- 摇一摇抽卡入口 -->
-                    <div class="shake-agent-entrance" id="shakeAgentEntrance">
-                        <div class="shake-icon">🎲</div>
-                        <div class="shake-text">摇一摇 / 抽卡</div>
-                        <div class="shake-desc">随机生成新角色</div>
                     </div>
                     <div class="agents-list-wrap" id="agentsListWrap">
                         <div id="agentsList"></div>
@@ -311,6 +353,36 @@ window.AppRegistry.push({
                                 <span class="shake-tag" data-tag="霸总职场">霸总职场</span>
                             </div>
                             <input type="text" class="shake-input" id="shakeWorldInput" placeholder="或输入你想要的世界观 (选填)">
+                            <div class="shake-extra-section">
+                                <div class="shake-field-label">性别（选填）</div>
+                                <input type="text" class="shake-extra-input" id="shakeGenderInput" placeholder="如：男、女、无性别、随机..." autocomplete="off">
+                            </div>
+                            <div class="shake-extra-section">
+                                <div class="shake-field-label">种族（选填）</div>
+                                <input type="text" class="shake-extra-input" id="shakeRaceInput" placeholder="如：人类、精灵、兽人、机器人..." autocomplete="off">
+                            </div>
+                            <div class="shake-extra-section">
+                                <div class="shake-field-label">性格倾向（选填）</div>
+                                <input type="text" class="shake-extra-input" id="shakePersonalityInput" placeholder="如：温柔、高冷、话痨、毒舌..." autocomplete="off">
+                            </div>
+                            <div class="shake-api-section">
+                                <div class="shake-api-title">⚙️ API 配置 <span class="shake-api-hint">（空则使用聊天API）</span></div>
+                                <div class="shake-api-fields">
+                                    <input type="text" class="shake-api-input" id="shakeApiUrl" placeholder="API 地址（默认使用聊天设置）" autocomplete="off">
+                                    <input type="password" class="shake-api-input" id="shakeApiKey" placeholder="API Key（默认使用聊天设置）" autocomplete="off">
+                                    <div style="display:flex; gap:8px;">
+                                        <select class="shake-api-input" id="shakeApiModelSelect" style="flex:1;">
+                                            <option value="">自定义模型</option>
+                                        </select>
+                                        <button class="shake-api-btn" id="shakeFetchModelsBtn">拉取</button>
+                                    </div>
+                                    <input type="text" class="shake-api-input" id="shakeApiModel" placeholder="模型名称（默认使用聊天设置）" autocomplete="off">
+                                    <div style="display:flex; gap:8px; margin-top: 4px;">
+                                        <button class="shake-api-btn" id="shakeApiSaveBtn" style="flex:1;">保存配置</button>
+                                        <button class="shake-api-btn danger" id="shakeApiClearBtn" style="flex:1; background:#ff3b30;">清空</button>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="shake-actions">
                                 <button class="shake-btn cancel" id="shakeCancel">取消</button>
                                 <button class="shake-btn confirm" id="shakeStart">准备摇晃 🪇</button>

@@ -126,6 +126,27 @@ window.AppRegistry.push({
                                         <span class="slider-val" id="iconSizeValue">58</span>
                                     </div>
                                 </div>
+                                <div class="settings-row">
+                                    <label class="settings-row-label">图标描边</label>
+                                    <label class="ios-switch">
+                                        <input type="checkbox" id="iconStrokeSwitch" checked>
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                                <div class="settings-row stroke-color-row" id="strokeColorRow">
+                                    <label class="settings-row-label">描边颜色</label>
+                                    <div class="stroke-color-palette">
+                                        <div class="stroke-swatch active" data-stroke-color="#1a1a1a" style="background:#1a1a1a" title="默认黑"></div>
+                                        <div class="stroke-swatch" data-stroke-color="#ffffff" style="background:#ffffff;border:1px solid #ccc" title="白色"></div>
+                                        <div class="stroke-swatch" data-stroke-color="#007aff" style="background:#007aff" title="蓝色"></div>
+                                        <div class="stroke-swatch" data-stroke-color="#ff3b30" style="background:#ff3b30" title="红色"></div>
+                                        <div class="stroke-swatch" data-stroke-color="#34c759" style="background:#34c759" title="绿色"></div>
+                                        <div class="stroke-swatch" data-stroke-color="#ff9500" style="background:#ff9500" title="橙色"></div>
+                                        <div class="stroke-swatch" data-stroke-color="#af52de" style="background:#af52de" title="紫色"></div>
+                                        <div class="stroke-swatch" data-stroke-color="#ffd60a" style="background:#ffd60a" title="黄色"></div>
+                                        <input type="color" class="stroke-color-custom" id="strokeColorCustom" value="#1a1a1a" title="自定义颜色">
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -143,6 +164,7 @@ window.AppRegistry.push({
                             </div>
                             <div class="settings-group-box icon-color-settings">
                                 <div class="icon-color-item" data-app-icon="chat">
+                                    <div class="icon-preview" data-preview="chat"></div>
                                     <span class="icon-color-name">Uchat</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="chat" value="#667eea" title="选择颜色">
@@ -152,6 +174,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_chat" accept="image/*" style="display:none" data-app-upload="chat">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="settings">
+                                    <div class="icon-preview" data-preview="settings"></div>
                                     <span class="icon-color-name">设置</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="settings" value="#8e8e93" title="选择颜色">
@@ -161,6 +184,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_settings" accept="image/*" style="display:none" data-app-upload="settings">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="theme">
+                                    <div class="icon-preview" data-preview="theme"></div>
                                     <span class="icon-color-name">主题</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="theme" value="#af52de" title="选择颜色">
@@ -170,6 +194,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_theme" accept="image/*" style="display:none" data-app-upload="theme">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="photos">
+                                    <div class="icon-preview" data-preview="photos"></div>
                                     <span class="icon-color-name">相册</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="photos" value="#ff9500" title="选择颜色">
@@ -179,6 +204,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_photos" accept="image/*" style="display:none" data-app-upload="photos">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="music">
+                                    <div class="icon-preview" data-preview="music"></div>
                                     <span class="icon-color-name">音乐</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="music" value="#ff2d55" title="选择颜色">
@@ -188,6 +214,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_music" accept="image/*" style="display:none" data-app-upload="music">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="safari">
+                                    <div class="icon-preview" data-preview="safari"></div>
                                     <span class="icon-color-name">Safari</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="safari" value="#34c759" title="选择颜色">
@@ -197,6 +224,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_safari" accept="image/*" style="display:none" data-app-upload="safari">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="weather">
+                                    <div class="icon-preview" data-preview="weather"></div>
                                     <span class="icon-color-name">天气</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="weather" value="#5ac8fa" title="选择颜色">
@@ -206,6 +234,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_weather" accept="image/*" style="display:none" data-app-upload="weather">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="notes">
+                                    <div class="icon-preview" data-preview="notes"></div>
                                     <span class="icon-color-name">备忘录</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="notes" value="#ffd60a" title="选择颜色">
@@ -215,6 +244,7 @@ window.AppRegistry.push({
                                     <input type="file" id="iconFile_notes" accept="image/*" style="display:none" data-app-upload="notes">
                                 </div>
                                 <div class="icon-color-item" data-app-icon="clock">
+                                    <div class="icon-preview" data-preview="clock"></div>
                                     <span class="icon-color-name">时钟</span>
                                     <div class="icon-controls">
                                         <input type="color" class="icon-color-picker" data-app-color="clock" value="#1c1c1e" title="选择颜色">

@@ -11,37 +11,87 @@ window.AppRegistry.push({
                             </svg>
                         </button>
                         <div class="header-center"><div class="header-name">聊天设置</div></div>
-                        <div style="width:36px"></div>
+                        <button class="header-btn" id="saveSettingsBtn" style="color: #007aff; font-size: 16px; font-weight: 500; background: none; border: none; padding: 0 16px; height: 100%; display: flex; align-items: center; cursor: pointer;">保存</button>
                     </div>
                     <div class="settings-scroll">
-                        <!-- 聊天主题 -->
+
+                        <!-- 气泡风格与颜色 -->
                         <div class="settings-section">
-                            <div class="settings-section-title">聊天主题</div>
+                            <div class="settings-section-title">气泡美化</div>
                             <div class="settings-group-box">
-                                <div class="theme-preset-grid">
-                                    <div class="theme-preset-item tp-default active" data-preset="default">
-                                        <div class="theme-preset-preview">
-                                            <div class="tp-bubble-ai"></div>
-                                            <div class="tp-bubble-user"></div>
-                                            <div class="tp-bubble-ai-2"></div>
-                                        </div>
-                                        <div class="theme-preset-name">默认</div>
+                                <!-- 风格预设 -->
+                                <div class="bubble-style-grid" style="margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                                    <div class="bubble-style-item bs-classic active" data-bubble-style="classic">
+                                        <div class="bubble-style-preview"><div class="bs-ai"></div><div class="bs-user"></div></div>
+                                        <div class="bubble-style-name">经典</div>
                                     </div>
-                                    <div class="theme-preset-item tp-dark" data-preset="dark">
-                                        <div class="theme-preset-preview">
-                                            <div class="tp-bubble-ai"></div>
-                                            <div class="tp-bubble-user"></div>
-                                            <div class="tp-bubble-ai-2"></div>
-                                        </div>
-                                        <div class="theme-preset-name">暗夜</div>
+                                    <div class="bubble-style-item bs-gradient" data-bubble-style="gradient">
+                                        <div class="bubble-style-preview"><div class="bs-ai"></div><div class="bs-user"></div></div>
+                                        <div class="bubble-style-name">渐变</div>
                                     </div>
-                                    <div class="theme-preset-item tp-sakura" data-preset="sakura">
-                                        <div class="theme-preset-preview">
-                                            <div class="tp-bubble-ai"></div>
-                                            <div class="tp-bubble-user"></div>
-                                            <div class="tp-bubble-ai-2"></div>
-                                        </div>
-                                        <div class="theme-preset-name">粉樱</div>
+                                    <div class="bubble-style-item bs-glass" data-bubble-style="glass">
+                                        <div class="bubble-style-preview"><div class="bs-ai"></div><div class="bs-user"></div></div>
+                                        <div class="bubble-style-name">毛玻璃</div>
+                                    </div>
+                                    <div class="bubble-style-item bs-minimal" data-bubble-style="minimal">
+                                        <div class="bubble-style-preview"><div class="bs-ai"></div><div class="bs-user"></div></div>
+                                        <div class="bubble-style-name">极简</div>
+                                    </div>
+                                    <div class="bubble-style-item bs-candy" data-bubble-style="candy">
+                                        <div class="bubble-style-preview"><div class="bs-ai"></div><div class="bs-user"></div></div>
+                                        <div class="bubble-style-name">糖果</div>
+                                    </div>
+                                </div>
+                                <!-- 自定义颜色 -->
+                                <div class="bubble-color-row">
+                                    <span class="bubble-color-label">我的气泡 - 背景</span>
+                                    <div class="bubble-color-controls">
+                                        <input type="color" class="bubble-color-pick" id="bubbleUserBgPick" value="#0a84ff">
+                                    </div>
+                                </div>
+                                <div class="bubble-color-row">
+                                    <span class="bubble-color-label">我的气泡 - 文字</span>
+                                    <div class="bubble-color-controls">
+                                        <input type="color" class="bubble-color-pick" id="bubbleUserTextPick" value="#ffffff">
+                                    </div>
+                                </div>
+                                <div class="bubble-color-row">
+                                    <span class="bubble-color-label">AI 气泡 - 背景</span>
+                                    <div class="bubble-color-controls">
+                                        <input type="color" class="bubble-color-pick" id="bubbleAiBgPick" value="#ffffff">
+                                    </div>
+                                </div>
+                                <div class="bubble-color-row">
+                                    <span class="bubble-color-label">AI 气泡 - 文字</span>
+                                    <div class="bubble-color-controls">
+                                        <input type="color" class="bubble-color-pick" id="bubbleAiTextPick" value="#1a1a1a">
+                                    </div>
+                                </div>
+                                <div class="bubble-color-row">
+                                    <span class="bubble-color-label" style="font-size:13px;color:#8e8e93;">勾选启用自定义颜色</span>
+                                    <div class="bubble-color-controls">
+                                        <label class="ios-switch">
+                                            <input type="checkbox" id="bubbleCustomEnable">
+                                            <span class="slider"></span>
+                                        </label>
+                                        <button class="bubble-reset-btn" id="bubbleColorResetBtn">重置</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 聊天背景图片 -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">聊天背景图片</div>
+                            <div class="settings-group-box">
+                                <div class="chat-bg-preview-row">
+                                    <div class="chat-bg-thumb" id="chatBgThumb">
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                                    </div>
+                                    <div class="chat-bg-actions">
+                                        <button class="chat-bg-btn" id="chatBgUploadBtn">上传图片</button>
+                                        <button class="chat-bg-btn danger" id="chatBgResetBtn">移除</button>
+                                        <input type="file" id="chatBgFileInput" accept="image/*" style="display:none">
                                     </div>
                                 </div>
                             </div>
@@ -190,10 +240,13 @@ window.AppRegistry.push({
                             </div>
                         </div>
 
-                        <button class="settings-save-btn" id="saveSettingsBtn">保存设置</button>
-                        <button class="settings-danger-btn" id="clearChatBtn">
+                        <button class="settings-danger-btn" id="clearChatBtn" style="margin-bottom: 12px;">
                             <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" fill="currentColor"/></svg>
                             清空聊天记录
+                        </button>
+                        <button class="settings-danger-btn" id="deleteFriendBtn">
+                            <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" fill="currentColor"/></svg>
+                            删除好友
                         </button>
                     </div>
                 </div>

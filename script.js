@@ -185,6 +185,7 @@ const STATE = {
         userAvatarC2: '#5856d6',
         userAvatarImage: '', // ObjectURL
         userPrompt: '',
+        onlineMode: true,
         theme: {
             wallpaper: 'gradient1',
             wallpaperImage: '', // ObjectURL
@@ -193,9 +194,18 @@ const STATE = {
             iconSize: 58,
             iconImages: {}, // ObjectURLs
             iconColors: {}, // 自定义图标纯色 {appName: '#hex'}
+            iconStroke: true, // 图标是否显示描边
+            iconStrokeColor: '#1a1a1a', // 描边颜色
             hideCustomIconText: false, // 是否隐藏自定义图标的文字
             chatPreset: 'default', // default | dark | sakura
-            globalTheme: 'default' // default | mint | midnight
+            globalTheme: 'default', // default | mint | midnight
+            bubbleStyle: 'classic', // classic | gradient | glass | minimal | candy
+            bubbleCustomEnable: false,
+            bubbleUserBg: '#0a84ff',
+            bubbleUserText: '#ffffff',
+            bubbleAiBg: '#ffffff',
+            bubbleAiText: '#1a1a1a',
+            chatBgImage: '' // ObjectURL
         }
     },
     agents: [],
@@ -448,21 +458,59 @@ const getPage = (appId) => {
 function openApp(appId, page) {
     const targetPage = page || getPage(appId);
     if (!targetPage) return;
+    
+    if (currentApp) {
+        const prevPage = getPage(currentApp);
+        if (prevPage) prevPage.classList.remove('active');
+    }
+    
     currentApp = appId;
     appStack.push(appId);
     targetPage.classList.add('active');
     history.pushState({ appId }, '', '#' + appId);
 }
 
-function closeApp() {
+function closeApp(e) {
+    const forceAll = e === true;
     if (!currentApp) return;
-    const page = getPage(currentApp);
-    if (page) page.classList.remove('active');
-    currentApp = null;
-    appStack = [];
-    closeEmojiPanel();
+
+    if (forceAll) {
+        appStack.forEach(app => {
+            const p = getPage(app);
+            if (p) p.classList.remove('active');
+        });
+        const steps = appStack.length;
+        currentApp = null;
+        appStack = [];
+        closeEmojiPanel();
+        if (!closeFromPopstate && steps > 0) {
+            history.go(-steps);
+        }
+        return;
+    }
+
     if (!closeFromPopstate) {
         history.back();
+        return;
+    }
+
+    const page = getPage(currentApp);
+    if (page) page.classList.remove('active');
+    
+    closeEmojiPanel();
+    
+    if (appStack.length > 0 && appStack[appStack.length - 1] === currentApp) {
+        appStack.pop();
+    } else {
+        appStack = appStack.filter(a => a !== currentApp);
+    }
+    
+    if (appStack.length > 0) {
+        currentApp = appStack[appStack.length - 1];
+        const prevPage = getPage(currentApp);
+        if (prevPage) prevPage.classList.add('active');
+    } else {
+        currentApp = null;
     }
 }
 
@@ -472,6 +520,8 @@ function goBackToChat() {
     if (page) page.classList.remove('active');
     currentApp = 'chat';
     appStack = appStack.filter(a => a !== 'chatSettings');
+    const chatPage = getPage('chat');
+    if (chatPage) chatPage.classList.add('active');
 }
 
 // 主界面应用图标点击
@@ -507,7 +557,7 @@ document.querySelectorAll('.app-icon[data-app]').forEach(icon => {
 const homeIndicator = document.querySelector('.home-indicator');
 if (homeIndicator) {
     homeIndicator.addEventListener('click', () => {
-        if (currentApp) closeApp();
+        if (currentApp) closeApp(true);
     });
     homeIndicator.style.cursor = 'pointer';
 }
@@ -748,11 +798,12 @@ function renderFavorites() {
     
     // 绑定收藏列表操作
     list.querySelectorAll('.favorite-item-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const action = btn.dataset.action;
             const id = btn.dataset.id;
             if (action === 'remove') {
+                if (!(await showConfirm('确定要移除这条收藏吗？'))) return;
                 favorites = favorites.filter(f => f.id !== id);
                 db.favorites.put({id:"favorites", data: favorites});
                 renderFavorites();
@@ -768,7 +819,8 @@ function renderFavorites() {
 }
 
 // 4. 删除消息
-function deleteMessage(msg) {
+async function deleteMessage(msg) {
+    if (!(await showConfirm('确定要删除这条消息吗？'))) return;
     // 从消息列表移除
     STATE.messages = STATE.messages.filter(m => m.id !== msg.id);
     // 从 DOM 移除
@@ -1377,11 +1429,27 @@ if ($('closeFavorites')) {
 
 // ===== 覆盖 handleSend 以支持引用 + 后台消息生成 + 通知弹窗 =====
 const origHandleSend = handleSend;
-handleSend = async function() {
+
+let currentInputMode = 'text';
+
+handleSend = async function(e, forceText = null, forceProxy = null) {
+    const isForceText = typeof forceText === 'string' ? forceText : (typeof e === 'string' ? e : null);
+    const isForceProxy = (forceProxy && typeof forceProxy === 'object') ? forceProxy : (typeof forceText === 'object' ? forceText : null);
+
     const inp = $('messageInput');
-    const text = inp ? inp.value.trim() : '';
+    const text = isForceText || (inp ? inp.value.trim() : '');
     if (!text || STATE.isProcessing) return;
     closeEmojiPanel();
+    
+    let proxy = isForceProxy;
+    if (!proxy && currentInputMode !== 'text') {
+        proxy = { type: currentInputMode };
+        exitInputMode();
+    }
+
+    if (inp && !isForceText) {
+        inp.style.height = 'auto';
+    }
     
     // 捕获发送时的状态（供后台生成完成时使用）
     const sendAgentId = STATE.currentAgentId;
@@ -1390,14 +1458,16 @@ handleSend = async function() {
         : STATE.agents.find(a => a.id === sendAgentId);
     
     // 如果有引用，在消息前添加引用格式
+    let finalText = text;
     if (quoteTarget) {
         const quotedContent = quoteTarget.content.length > 50 ? quoteTarget.content.slice(0, 50) + '...' : quoteTarget.content;
-        $('messageInput').value = `> ${quotedContent}\n${text}`;
+        finalText = `> ${quotedContent}\n${text}`;
+        if (!isForceText && inp) inp.value = finalText;
         clearQuote();
     }
 
-    addMsg($('messageInput').value || text, 'user');
-    $('messageInput').value = '';
+    addMsg(isForceText || (inp ? inp.value : text) || text, 'user', proxy);
+    if (inp && !isForceText) inp.value = '';
     updateBtn();
     STATE.isProcessing = true;
     showTyping();
@@ -1497,6 +1567,14 @@ handleSend = async function() {
             }
         }
         aiMsg.content = full;
+        const voiceMatch = full.match(/\[Voice:(.*?)\]/is);
+        if (voiceMatch) {
+            aiMsg.content = voiceMatch[1].trim();
+            aiMsg.proxy = { type: 'voice' };
+            if (isStillOnChat() && bubble) {
+                bubble.innerHTML = getMsgInnerHtml(aiMsg);
+            }
+        }
         
         if (isStillOriginalAgent()) {
             // 当前 agent 未变 - 直接 push 到 STATE.messages，外层 wrapper 会保存
@@ -1609,6 +1687,9 @@ function showAgentNotification(agent, content, agentId) {
         
         // 切到对应聊天
         if (typeof selectAgent === 'function' && agentId) {
+            if (!appStack.includes('agents')) {
+                openApp('agents');
+            }
             selectAgent(agentId);
         }
     });
@@ -1647,14 +1728,6 @@ renderMsg = function(msg) {
     });
 };
 
-// ===== 为欢迎消息绑定长按 =====
-document.addEventListener('DOMContentLoaded', () => {
-    const ma = getMessagesArea();
-    const welcomeMsg = ma ? ma.querySelector('.welcome-message') : null;
-    if (welcomeMsg) {
-        welcomeMsg.dataset.id = 'welcome';
-    }
-});
 
 // ===== 图片压缩工具 =====
 function compressImage(file, callback) {
@@ -1934,8 +2007,34 @@ function renderMD(text) {
 function esc(t){return t.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>');}
 
 // ===== 消息 =====
-function addMsg(content, role) {
-    const m = { id: Date.now().toString(36)+Math.random().toString(36).substr(2,5), content, role, time: getTime() };
+function getMsgInnerHtml(msg) {
+    let innerContent = '';
+    if (msg.proxy) {
+        if (msg.proxy.type === 'voice') {
+            const sec = Math.max(1, Math.min(60, Math.ceil((msg.content || '').length / 4)));
+            const width = 50 + (sec * 2);
+            const barCount = 5 + Math.floor(sec / 2);
+            let bars = '';
+            for(let i=0; i<barCount; i++) {
+                bars += `<div class="proxy-voice-bar" style="animation: bounce ${0.5 + Math.random()}s infinite alternate"></div>`;
+            }
+            const voiceHtml = `<div class="proxy-voice" style="width: ${width}px; display:flex; align-items:center; box-sizing:border-box;"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="flex-shrink:0;"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg><div style="display:flex;flex:1;overflow:hidden;margin-left:4px;">${bars}</div><span style="font-size:12px; margin-left:5px;">${sec}"</span></div>`;
+            const translationHtml = `<div class="voice-text-translation" style="margin-top:4px; font-size:12px; color:#666; word-break:break-all;">${esc(msg.content)}</div>`;
+            innerContent = `<div style="display:flex; flex-direction:column; align-items:flex-start;">${voiceHtml}${translationHtml}</div>`;
+        } else if (msg.proxy.type === 'image') {
+            const escapedText = esc(msg.content || '').replace(/"/g, '"');
+            innerContent = `<img src="./image/yata.png" class="proxy-image-content" style="max-width: 150px; border-radius: 8px; cursor: pointer; display: block;" data-text="${escapedText}" onclick="showConfirm(this.getAttribute('data-text'), {title: '图片描述', danger: false})">`;
+        } else if (msg.proxy.type === 'emoji') {
+            innerContent = `<div class="proxy-emoji" style="background-image:url('${msg.proxy.url}')"></div>`;
+        }
+    } else {
+        innerContent = msg.role === 'ai' ? renderMD(msg.content) : esc(msg.content).replace(/\n/g, '<br>');
+    }
+    return innerContent;
+}
+
+function addMsg(content, role, proxy = null) {
+    const m = { id: Date.now().toString(36)+Math.random().toString(36).substr(2,5), content, role, time: getTime(), proxy };
     STATE.messages.push(m);
     renderMsg(m);
     scrollBottom();
@@ -1963,7 +2062,15 @@ function renderMsg(msg) {
     cd.className = 'message-content';
     const b = document.createElement('div');
     b.className = `message-bubble ${msg.role}`;
-    b.innerHTML = msg.role === 'ai' ? renderMD(msg.content) : esc(msg.content);
+    
+    if (msg.proxy && msg.proxy.type === 'image') {
+        b.style.background = 'transparent';
+        b.style.padding = '0';
+        b.style.boxShadow = 'none';
+    }
+    
+    let innerContent = getMsgInnerHtml(msg);
+    b.innerHTML = innerContent;
     cd.appendChild(b);
 
     if (msg.role === 'user') {
@@ -2075,6 +2182,10 @@ async function callAI(messages) {
     if (userPrompt) {
         sysContent += `\n\n以下是关于用户的信息，请在对话中参考：\n${userPrompt}`;
     }
+    if (STATE.settings.onlineMode) {
+        sysContent += `\n\n【重要设定：线上模式】你和用户目前正在通过手机聊天软件进行文字交流。你不能做出任何现实中的肢体动作、神态描写或环境描写，就像一个真人在发消息一样。`;
+    }
+    sysContent += `\n\n【系统能力】如果你想发送一段长语音给用户，你可以输出特定的格式 [Voice:这里是你说的内容]，系统将拦截它并自动转为语音消息。如果是发普通文字消息，则不要包含该标记。`;
     msgs.push({ role:'system', content:sysContent });
     messages.forEach(m => msgs.push({ role: m.role==='ai'?'assistant':'user', content:m.content }));
 
@@ -2089,6 +2200,33 @@ async function callAI(messages) {
         throw new Error(e);
     }
     return res;
+}
+
+// ===== 非流式 LLM 调用（摇一摇等功能使用） =====
+// overrides: { apiEndpoint, apiKey, model } 可选，用于摇一摇独立 API 配置
+async function callLLM(messages, overrides) {
+    const ov = overrides || {};
+    const apiEndpoint = ov.apiEndpoint || STATE.settings.apiEndpoint;
+    const apiKey = ov.apiKey || STATE.settings.apiKey;
+    const modelRaw = ov.model || STATE.settings.model;
+    const customModel = STATE.settings.customModel;
+    if (!apiKey) throw new Error('请先在设置中配置 API Key');
+    let ep = apiEndpoint.replace(/\/+$/,'');
+    if (!ep.endsWith('/chat/completions')) ep += '/chat/completions';
+    let mn = modelRaw;
+    if (modelRaw === 'custom' && customModel) mn = customModel;
+    const res = await fetch(ep, {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+        body:JSON.stringify({ model:mn, messages, temperature:0.9, max_tokens:1024, stream:false })
+    });
+    if (!res.ok) {
+        let e=`请求失败 (${res.status})`;
+        try{const d=await res.json();if(d.error?.message)e=d.error.message;}catch(ee){}
+        throw new Error(e);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || '';
 }
 
 async function handleSend() {
@@ -2145,6 +2283,14 @@ async function handleSend() {
             if (t.startsWith('data: ')) { const d=t.slice(6); if(d!=='[DONE]'){try{const p=JSON.parse(d);const delta=p.choices?.[0]?.delta?.content;if(delta){full+=delta;bubble.innerHTML=renderMD(full);}}catch(ee){}} }
         }
         aiMsg.content = full;
+        const voiceMatch = full.match(/\[Voice:(.*?)\]/is);
+        if (voiceMatch) {
+            aiMsg.content = voiceMatch[1].trim();
+            aiMsg.proxy = { type: 'voice' };
+            if (bubble) {
+                bubble.innerHTML = getMsgInnerHtml(aiMsg);
+            }
+        }
         STATE.messages.push(aiMsg);
         scrollBottom();
     } catch (error) {
@@ -2161,8 +2307,19 @@ async function handleSend() {
 function updateBtn() {
     const inp = $('messageInput');
     const sBtn = $('sendBtn');
+    const pBtn = $('plusBtn');
     if (!inp || !sBtn) return;
-    sBtn.classList.toggle('active', inp.value.trim().length > 0 && !STATE.isProcessing);
+    const hasText = inp.value.trim().length > 0;
+    
+    if (hasText) {
+        if (pBtn) pBtn.style.display = 'none';
+        sBtn.style.display = 'flex';
+        sBtn.classList.toggle('active', !STATE.isProcessing);
+    } else {
+        if (pBtn) pBtn.style.display = 'flex';
+        sBtn.style.display = 'none';
+        sBtn.classList.remove('active');
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2170,14 +2327,161 @@ document.addEventListener('DOMContentLoaded', () => {
     if(sBtn) sBtn.addEventListener('click', handleSend);
 });
 
+function syncOnlineModeSwitch() {
+    const sw = $('onlineModeSwitch');
+    if (sw) sw.checked = !!STATE.settings.onlineMode;
+}
+
+document.addEventListener('change', async (e) => {
+    if (e.target && e.target.id === 'onlineModeSwitch') {
+        STATE.settings.onlineMode = e.target.checked;
+        await saveSetting('settings', STATE.settings);
+    }
+});
 // 这里改到 DOMContentLoaded 绑定的方式更安全
 document.addEventListener('DOMContentLoaded', () => {
     const inp = $('messageInput');
     if (inp) {
         inp.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } });
-        inp.addEventListener('input', updateBtn);
+        inp.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            updateBtn();
+        });
+    }
+
+    // Ext Panel Toggle
+    const plusBtn = $('plusBtn');
+    if (plusBtn) {
+        plusBtn.addEventListener('click', () => {
+            const ext = $('extPanel');
+            if (ext.style.display === 'none') {
+                ext.style.display = 'block';
+                const ep = $('emojiPicker');
+                if (ep) ep.classList.remove('active');
+            } else {
+                ext.style.display = 'none';
+                if($('customEmojiPanel')) $('customEmojiPanel').style.display = 'none';
+                if($('extGrid')) $('extGrid').style.display = 'grid';
+            }
+        });
+    }
+    document.addEventListener('click', (e) => {
+        const ext = $('extPanel');
+        const pb = $('plusBtn');
+        if (ext && ext.style.display === 'block' && !ext.contains(e.target) && pb && e.target !== pb && !pb.contains(e.target)) {
+            ext.style.display = 'none';
+            if($('customEmojiPanel')) $('customEmojiPanel').style.display = 'none';
+            if($('extGrid')) $('extGrid').style.display = 'grid';
+        }
+    });
+
+    // Input Mode Switching
+    window.enterInputMode = function(mode, text) {
+        currentInputMode = mode;
+        const mt = $('inputModeText');
+        const mi = $('inputModeIndicator');
+        if (mt) mt.textContent = text;
+        if (mi) mi.style.display = 'flex';
+    };
+    window.exitInputMode = function() {
+        currentInputMode = 'text';
+        const mi = $('inputModeIndicator');
+        if (mi) mi.style.display = 'none';
+        const inp = $('messageInput');
+        if (inp) { inp.placeholder = '输入消息...'; }
+    };
+
+    if ($('extVoiceBtn')) {
+        $('extVoiceBtn').addEventListener('click', () => {
+            enterInputMode('voice', '语音输入模式 (将发送语音气泡)');
+            $('extPanel').style.display = 'none';
+            const inp = $('messageInput');
+            if (inp) { inp.placeholder = '输入要发给 AI 的语音描述...'; inp.focus(); }
+        });
+    }
+    if ($('extImageBtn')) {
+        $('extImageBtn').addEventListener('click', () => {
+            enterInputMode('image', '图片发送模式 (将发送图片气泡)');
+            $('extPanel').style.display = 'none';
+            const inp = $('messageInput');
+            if (inp) { inp.placeholder = '输入要发给 AI 的图片描述...'; inp.focus(); }
+        });
+    }
+    if ($('cancelInputModeBtn')) {
+        $('cancelInputModeBtn').addEventListener('click', () => {
+            exitInputMode();
+            const inp = $('messageInput');
+            if (inp) { inp.placeholder = '输入消息...'; }
+        });
+    }
+
+    // Custom Emoji Panel
+    if ($('extCustomEmojiBtn')) {
+        $('extCustomEmojiBtn').addEventListener('click', () => {
+            if($('extGrid')) $('extGrid').style.display = 'none';
+            if($('customEmojiPanel')) $('customEmojiPanel').style.display = 'block';
+            renderCustomEmojis();
+        });
+    }
+    if ($('customEmojiBackBtn')) {
+        $('customEmojiBackBtn').addEventListener('click', () => {
+            if($('customEmojiPanel')) $('customEmojiPanel').style.display = 'none';
+            if($('extGrid')) $('extGrid').style.display = 'grid';
+        });
+    }
+    if ($('customEmojiAddBtn')) {
+        $('customEmojiAddBtn').addEventListener('click', async () => {
+            const url = await showPrompt('请输入图片 URL (或 Base64)', '添加自定义表情');
+            if (!url) return;
+            const keyword = await showPrompt('请输入表情对应的文字描述 (发给AI的关键词)', '表情描述');
+            if (!keyword) return;
+            
+            let emojis = [];
+            try { emojis = JSON.parse(localStorage.getItem('customEmojis')) || []; } catch(e){}
+            emojis.push({ id: Date.now().toString(), url, keyword });
+            localStorage.setItem('customEmojis', JSON.stringify(emojis));
+            renderCustomEmojis();
+        });
     }
 });
+
+function renderCustomEmojis() {
+    const grid = $('customEmojiGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    let emojis = [];
+    try { emojis = JSON.parse(localStorage.getItem('customEmojis')) || []; } catch(e){}
+    
+    emojis.forEach(em => {
+        const item = document.createElement('div');
+        item.style.cssText = `width:100%; aspect-ratio:1; background:url('${em.url}') center/contain no-repeat; border-radius:8px; cursor:pointer; position:relative;`;
+        
+        item.addEventListener('click', () => {
+            handleSend(null, `[发送了表情: ${em.keyword}]`, { type: 'emoji', url: em.url });
+            if($('extPanel')) $('extPanel').style.display = 'none';
+        });
+        
+        let timer;
+        item.addEventListener('touchstart', () => {
+            timer = setTimeout(() => { deleteCustomEmoji(em.id); }, 800);
+        });
+        item.addEventListener('touchend', () => clearTimeout(timer));
+        item.addEventListener('contextmenu', (e) => { e.preventDefault(); deleteCustomEmoji(em.id); });
+        
+        grid.appendChild(item);
+    });
+}
+
+async function deleteCustomEmoji(id) {
+    if (await showConfirm('删除此自定义表情？')) {
+        let emojis = [];
+        try { emojis = JSON.parse(localStorage.getItem('customEmojis')) || []; } catch(e){}
+        emojis = emojis.filter(e => e.id !== id);
+        localStorage.setItem('customEmojis', JSON.stringify(emojis));
+        renderCustomEmojis();
+    }
+}
 
 // ===== 表情 =====
 const EMOJIS = ['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🙂','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕','🤑','🤠','😈','👿','👹','👺','💀','☠️','👻','👽','🤖','💩','😺','😸','😹','😻','😼','😽','🙀','😿','😾','🙌','👏','👍','👎','👊','✊','🤛','🤜','🤞','✌️','🤟','🤘','👌','🤌','🤏','🫶','💪','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💕','💗','💖','💘','💝','💞','💓','🔥','✨','⭐','🌟','💫','⚡','🌈'];
@@ -2242,11 +2546,26 @@ function loadSettingsUI() {
     $('customModel').value = STATE.settings.customModel;
     $('systemPrompt').value = STATE.settings.systemPrompt;
     $('userPrompt').value = STATE.settings.userPrompt;
+    
     $('temperature').value = STATE.settings.temperature;
     $('tempValue').textContent = STATE.settings.temperature;
     $('maxTokens').value = STATE.settings.maxTokens;
     $('tokensValue').textContent = STATE.settings.maxTokens;
     $('customModelRow').style.display = STATE.settings.model === 'custom' ? 'block' : 'none';
+
+    // 气泡风格 & 自定义颜色 & 聊天背景
+    const t = STATE.settings.theme || {};
+    const bubbleStyle = t.bubbleStyle || 'classic';
+    document.querySelectorAll('.bubble-style-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.bubbleStyle === bubbleStyle);
+    });
+    if ($('bubbleUserBgPick'))   $('bubbleUserBgPick').value   = t.bubbleUserBg   || '#0a84ff';
+    if ($('bubbleUserTextPick')) $('bubbleUserTextPick').value = t.bubbleUserText || '#ffffff';
+    if ($('bubbleAiBgPick'))     $('bubbleAiBgPick').value     = t.bubbleAiBg     || '#ffffff';
+    if ($('bubbleAiTextPick'))   $('bubbleAiTextPick').value   = t.bubbleAiText   || '#1a1a1a';
+    if ($('bubbleCustomEnable')) $('bubbleCustomEnable').checked = !!t.bubbleCustomEnable;
+    applyChatBg(); // 刷新缩略图
+
     applyUserAvatar(); saveSetting("settings", STATE.settings);
 }
 
@@ -2257,13 +2576,15 @@ async function saveSettings() {
     STATE.settings.customModel = $('customModel').value.trim();
     STATE.settings.systemPrompt = $('systemPrompt').value.trim() || '你是一个乐于助人的AI助手。';
     STATE.settings.userPrompt = $('userPrompt').value.trim();
+    
     STATE.settings.temperature = parseFloat($('temperature').value);
     STATE.settings.maxTokens = parseInt($('maxTokens').value);
     await saveSetting('settings', STATE.settings);
     showToast('设置已保存');
 }
 
-$('saveSettingsBtn').addEventListener('click', saveSettings);
+if ($('saveSettingsBtn')) $('saveSettingsBtn').addEventListener('click', saveSettings);
+if ($('saveSettingsBtnTop')) $('saveSettingsBtnTop').addEventListener('click', saveSettings);
 $('modelSelect').addEventListener('change', () => { $('customModelRow').style.display = $('modelSelect').value === 'custom' ? 'block' : 'none'; });
 $('temperature').addEventListener('input', e => { $('tempValue').textContent = parseFloat(e.target.value).toFixed(1); });
 $('maxTokens').addEventListener('input', e => { $('tokensValue').textContent = e.target.value; });
@@ -2312,10 +2633,141 @@ $('clearChatBtn').addEventListener('click', async () => {
     if (STATE.messages.length === 0) return;
     if (!(await showConfirm('确定清空所有聊天记录？'))) return;
     STATE.messages = [];
-    const ma = getMessagesArea();
-    if(ma) ma.innerHTML = `<div class="message welcome-message"><div class="message-avatar"><svg viewBox="0 0 40 40" width="32" height="32"><circle cx="20" cy="20" r="20" fill="${STATE.settings.avatarC1 || '#667eea'}"/></svg></div><div class="message-content ai"><div class="message-bubble ai">👋 你好！我是 AI 智能助手，有什么可以帮你的吗？</div><span class="message-time">刚刚</span></div></div>`;
+    rerenderMessages();
+    saveCurrentChatToAgent();
     showToast('聊天记录已清空');
 });
+
+// 删除好友
+if ($('deleteFriendBtn')) {
+    $('deleteFriendBtn').addEventListener('click', async () => {
+        if (!STATE.currentAgentId) return;
+        if (!(await showConfirm('确定要删除这个好友吗？删除后将无法恢复。', { danger: true }))) return;
+        
+        // 从数据源中移除
+        STATE.agents = STATE.agents.filter(a => a.id !== STATE.currentAgentId);
+        await db.agents.delete(STATE.currentAgentId);
+        
+        // 清除对应的聊天记录
+        delete STATE.agentChats[STATE.currentAgentId];
+        await db.agentChats.delete(STATE.currentAgentId);
+        
+        STATE.currentAgentId = null;
+        
+        // 关闭当前可能打开的所有相关应用
+        if (typeof closeApp === 'function') {
+            closeApp('pageChatSettings');
+            closeApp('chat');
+        }
+        
+        // 刷新列表
+        if (typeof renderAgentsList === 'function') {
+            renderAgentsList();
+        }
+        
+        showToast('已删除好友');
+    });
+}
+
+// ===== 气泡风格 & 自定义气泡颜色 & 聊天背景图 =====
+// 气泡风格点击
+document.addEventListener('click', async (e) => {
+    const item = e.target.closest('.bubble-style-item');
+    if (!item) return;
+    const style = item.dataset.bubbleStyle;
+    if (!style) return;
+    if (!STATE.settings.theme) STATE.settings.theme = {};
+    STATE.settings.theme.bubbleStyle = style;
+    applyBubbleStyle();
+    await saveSetting('settings', STATE.settings);
+});
+
+// 自定义气泡颜色 - 实时预览 + 持久化
+function bindBubbleCustomColors() {
+    const handler = async () => {
+        if (!STATE.settings.theme) STATE.settings.theme = {};
+        const t = STATE.settings.theme;
+        if ($('bubbleUserBgPick'))   t.bubbleUserBg   = $('bubbleUserBgPick').value;
+        if ($('bubbleUserTextPick')) t.bubbleUserText = $('bubbleUserTextPick').value;
+        if ($('bubbleAiBgPick'))     t.bubbleAiBg     = $('bubbleAiBgPick').value;
+        if ($('bubbleAiTextPick'))   t.bubbleAiText   = $('bubbleAiTextPick').value;
+        applyBubbleStyle();
+        await saveSetting('settings', STATE.settings);
+    };
+    ['bubbleUserBgPick','bubbleUserTextPick','bubbleAiBgPick','bubbleAiTextPick'].forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('input', handler);
+    });
+
+    const enableSw = $('bubbleCustomEnable');
+    if (enableSw) {
+        enableSw.addEventListener('change', async () => {
+            if (!STATE.settings.theme) STATE.settings.theme = {};
+            STATE.settings.theme.bubbleCustomEnable = enableSw.checked;
+            applyBubbleStyle();
+            await saveSetting('settings', STATE.settings);
+        });
+    }
+
+    const resetBtn = $('bubbleColorResetBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+            if (!await showConfirm('重置自定义气泡颜色？', { danger: false })) return;
+            const t = STATE.settings.theme || (STATE.settings.theme = {});
+            t.bubbleUserBg = '#0a84ff';
+            t.bubbleUserText = '#ffffff';
+            t.bubbleAiBg = '#ffffff';
+            t.bubbleAiText = '#1a1a1a';
+            t.bubbleCustomEnable = false;
+            if ($('bubbleUserBgPick'))   $('bubbleUserBgPick').value   = t.bubbleUserBg;
+            if ($('bubbleUserTextPick')) $('bubbleUserTextPick').value = t.bubbleUserText;
+            if ($('bubbleAiBgPick'))     $('bubbleAiBgPick').value     = t.bubbleAiBg;
+            if ($('bubbleAiTextPick'))   $('bubbleAiTextPick').value   = t.bubbleAiText;
+            if ($('bubbleCustomEnable')) $('bubbleCustomEnable').checked = false;
+            applyBubbleStyle();
+            await saveSetting('settings', STATE.settings);
+            showToast('已重置');
+        });
+    }
+}
+bindBubbleCustomColors();
+
+// 聊天背景图上传
+const chatBgUploadBtn = $('chatBgUploadBtn');
+const chatBgFileInput = $('chatBgFileInput');
+const chatBgResetBtn  = $('chatBgResetBtn');
+if (chatBgUploadBtn && chatBgFileInput) {
+    chatBgUploadBtn.addEventListener('click', () => chatBgFileInput.click());
+    chatBgFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        compressImage(file, async (blob) => {
+            if (!blob) { showToast('图片处理失败'); return; }
+            await saveMedia('chat_bg_img', blob);
+            const objUrl = createObjURL(blob);
+            if (!STATE.settings.theme) STATE.settings.theme = {};
+            STATE.settings.theme.chatBgImage = objUrl;
+            applyChatBg();
+            await saveSetting('settings', STATE.settings);
+            showToast('聊天背景已更换');
+            e.target.value = '';
+        });
+    });
+}
+if (chatBgResetBtn) {
+    chatBgResetBtn.addEventListener('click', async () => {
+        if (!STATE.settings.theme || !STATE.settings.theme.chatBgImage) {
+            showToast('当前未设置背景');
+            return;
+        }
+        if (!await showConfirm('移除聊天背景图？', { danger: true })) return;
+        await saveMedia('chat_bg_img', null);
+        STATE.settings.theme.chatBgImage = '';
+        applyChatBg();
+        await saveSetting('settings', STATE.settings);
+        showToast('已移除背景');
+    });
+}
 
 // ===== 主题系统 =====
 function loadThemeUI() {
@@ -2359,6 +2811,23 @@ function loadThemeUI() {
         $('hideCustomIconTextSwitch').checked = !!theme.hideCustomIconText;
     }
 
+    // 图标描边开关
+    if ($('iconStrokeSwitch')) {
+        $('iconStrokeSwitch').checked = theme.iconStroke !== false;
+    }
+
+    // 描边颜色恢复
+    const strokeColorRow = $('strokeColorRow');
+    if (strokeColorRow) {
+        strokeColorRow.style.display = (theme.iconStroke !== false) ? 'flex' : 'none';
+    }
+    const savedStrokeColor = theme.iconStrokeColor || '#1a1a1a';
+    document.querySelectorAll('.stroke-swatch').forEach(sw => {
+        sw.classList.toggle('active', sw.dataset.strokeColor === savedStrokeColor);
+    });
+    const strokeCustom = $('strokeColorCustom');
+    if (strokeCustom) strokeCustom.value = savedStrokeColor;
+
     // 同步主题预设卡片的 active 状态
     const preset = theme.chatPreset || 'default';
     document.querySelectorAll('.theme-preset-item').forEach(el => {
@@ -2369,6 +2838,9 @@ function loadThemeUI() {
     document.querySelectorAll('.global-theme-item').forEach(el => {
         el.classList.toggle('active', el.dataset.global === gt);
     });
+
+    // 初始化图标预览
+    updateAllIconPreviews();
 }
 
 // 主题预设卡片点击事件
@@ -2405,10 +2877,20 @@ function applyTheme() {
     applyIconSize();
     applyIconColors();
     applyChatPreset();
+    applyBubbleStyle();
+    applyChatBg();
     applyGlobalTheme();
     
     if (STATE.settings.theme) {
         document.body.classList.toggle('hide-custom-icon-text', !!STATE.settings.theme.hideCustomIconText);
+        document.body.classList.toggle('no-icon-stroke', STATE.settings.theme.iconStroke === false);
+        
+        // 应用自定义描边颜色
+        const strokeColor = STATE.settings.theme.iconStrokeColor || '#1a1a1a';
+        const hasStroke = STATE.settings.theme.iconStroke !== false;
+        document.querySelectorAll('.app-icon-bg').forEach(el => {
+            el.style.borderColor = hasStroke ? strokeColor : 'transparent';
+        });
     }
 }
 
@@ -2439,6 +2921,67 @@ function applyChatPreset() {
     document.querySelectorAll('.theme-preset-item').forEach(el => {
         el.classList.toggle('active', el.dataset.preset === preset);
     });
+}
+
+// ===== 气泡风格 & 自定义颜色 =====
+function applyBubbleStyle() {
+    const t = STATE.settings.theme || {};
+    const style = t.bubbleStyle || 'classic';
+    const pChat = document.getElementById('pageChat');
+    if (!pChat) return;
+
+    if (style && style !== 'classic') {
+        pChat.dataset.bubbleStyle = style;
+    } else {
+        // classic 也写入，便于切换时重置
+        pChat.dataset.bubbleStyle = 'classic';
+    }
+
+    // 自定义颜色（CSS 变量）
+    if (t.bubbleCustomEnable) {
+        pChat.dataset.bubbleCustom = '1';
+        // 不清除 style，让其与自定义颜色叠加
+        pChat.style.setProperty('--bubble-user-bg', t.bubbleUserBg || '#0a84ff');
+        pChat.style.setProperty('--bubble-user-text', t.bubbleUserText || '#ffffff');
+        pChat.style.setProperty('--bubble-ai-bg', t.bubbleAiBg || '#ffffff');
+        pChat.style.setProperty('--bubble-ai-text', t.bubbleAiText || '#1a1a1a');
+    } else {
+        delete pChat.dataset.bubbleCustom;
+        pChat.style.removeProperty('--bubble-user-bg');
+        pChat.style.removeProperty('--bubble-user-text');
+        pChat.style.removeProperty('--bubble-ai-bg');
+        pChat.style.removeProperty('--bubble-ai-text');
+    }
+
+    // 同步选中态
+    document.querySelectorAll('.bubble-style-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.bubbleStyle === style);
+    });
+}
+
+function applyChatBg() {
+    const t = STATE.settings.theme || {};
+    const pChat = document.getElementById('pageChat');
+    if (!pChat) return;
+    const url = t.chatBgImage;
+    if (url) {
+        pChat.dataset.chatBg = '1';
+        pChat.style.setProperty('--chat-bg-image', `url("${url}")`);
+    } else {
+        delete pChat.dataset.chatBg;
+        pChat.style.removeProperty('--chat-bg-image');
+    }
+    // 同步缩略图
+    const thumb = document.getElementById('chatBgThumb');
+    if (thumb) {
+        if (url) {
+            thumb.style.backgroundImage = `url("${url}")`;
+            thumb.innerHTML = '';
+        } else {
+            thumb.style.backgroundImage = '';
+            thumb.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>`;
+        }
+    }
 }
 
 function applyWallpaper() {
@@ -2526,6 +3069,37 @@ function applyIconColors() {
         }
         el.classList.toggle('icon-customized', customized);
     });
+    // 同步更新主题页预览
+    updateAllIconPreviews();
+}
+
+// ===== 图标预览更新 =====
+function updateIconPreview(appName) {
+    const el = document.querySelector(`.icon-preview[data-preview="${appName}"]`);
+    if (!el) return;
+    const img = STATE.settings.theme.iconImages && STATE.settings.theme.iconImages[appName];
+    const color = STATE.settings.theme.iconColors && STATE.settings.theme.iconColors[appName];
+    if (img) {
+        el.style.background = `url("${img}") center/cover no-repeat`;
+    } else if (color) {
+        el.style.background = color;
+    } else {
+        const def = DEFAULT_ICON_COLORS[appName];
+        el.style.background = def ? `linear-gradient(135deg, ${def.c1}, ${def.c2})` : '#fff';
+    }
+    // 同步描边状态与颜色
+    const hasStroke = STATE.settings.theme.iconStroke !== false;
+    el.classList.toggle('no-stroke', !hasStroke);
+    const strokeColor = STATE.settings.theme.iconStrokeColor || '#1a1a1a';
+    el.style.borderColor = hasStroke ? strokeColor : 'transparent';
+    // 同步形状
+    const shape = STATE.settings.theme.iconShape || 'rounded';
+    el.classList.remove('shape-rounded', 'shape-circle', 'shape-square');
+    el.classList.add('shape-' + shape);
+}
+
+function updateAllIconPreviews() {
+    ['chat','settings','theme','photos','music','safari','weather','notes','clock'].forEach(updateIconPreview);
 }
 
 // ===== 图标上传事件绑定 =====
@@ -2624,10 +3198,19 @@ async function saveTheme() {
         theme.hideCustomIconText = $('hideCustomIconTextSwitch').checked;
     }
 
-    
-    
-    
-    
+    if ($('iconStrokeSwitch')) {
+        theme.iconStroke = $('iconStrokeSwitch').checked;
+    }
+
+    // 保存描边颜色
+    const activeStrokeSwatch = document.querySelector('.stroke-swatch.active');
+    const strokeCustomInput = $('strokeColorCustom');
+    if (activeStrokeSwatch) {
+        theme.iconStrokeColor = activeStrokeSwatch.dataset.strokeColor;
+    } else if (strokeCustomInput) {
+        theme.iconStrokeColor = strokeCustomInput.value;
+    }
+
     await saveSetting('settings', STATE.settings);
     
 
@@ -2727,6 +3310,42 @@ $('iconSize').addEventListener('input', (e) => {
     $('iconSizeValue').textContent = e.target.value;
 });
 
+// ===== 图标描边开关 + 描边颜色实时切换 =====
+function bindIconStrokeSwitch() {
+    const sw = $('iconStrokeSwitch');
+    if (!sw) return;
+    sw.addEventListener('change', () => {
+        STATE.settings.theme.iconStroke = sw.checked;
+        document.body.classList.toggle('no-icon-stroke', !sw.checked);
+        const strokeColorRow = $('strokeColorRow');
+        if (strokeColorRow) strokeColorRow.style.display = sw.checked ? 'flex' : 'none';
+        updateAllIconPreviews();
+        applyTheme();
+    });
+    // 绑定描边颜色色块
+    document.querySelectorAll('.stroke-swatch').forEach(swatch => {
+        swatch.addEventListener('click', () => {
+            document.querySelectorAll('.stroke-swatch').forEach(s => s.classList.remove('active'));
+            swatch.classList.add('active');
+            const color = swatch.dataset.strokeColor;
+            STATE.settings.theme.iconStrokeColor = color;
+            if ($('strokeColorCustom')) $('strokeColorCustom').value = color;
+            applyTheme();
+            updateAllIconPreviews();
+        });
+    });
+    // 绑定自定义描边颜色拾色器
+    const strokeCustom = $('strokeColorCustom');
+    if (strokeCustom) {
+        strokeCustom.addEventListener('input', (e) => {
+            document.querySelectorAll('.stroke-swatch').forEach(s => s.classList.remove('active'));
+            STATE.settings.theme.iconStrokeColor = e.target.value;
+            applyTheme();
+            updateAllIconPreviews();
+        });
+    }
+}
+
 // 保存主题
 $('saveThemeBtn').addEventListener('click', saveTheme);
 
@@ -2766,6 +3385,14 @@ async function bootApp() {
             if (STATE.settings.theme.wallpaper === 'custom') {
                 STATE.settings.theme.wallpaper = DEFAULT_WALLPAPER;
             }
+        }
+
+        // 聊天背景图
+        const cbgImg = await getMedia('chat_bg_img');
+        if (cbgImg) {
+            STATE.settings.theme.chatBgImage = cbgImg;
+        } else if (isStaleBlob(STATE.settings.theme.chatBgImage)) {
+            STATE.settings.theme.chatBgImage = '';
         }
 
         const apps = ['chat', 'settings', 'theme', 'photos', 'music', 'safari', 'weather', 'notes', 'clock'];
@@ -2844,7 +3471,9 @@ applyUserAvatar();
 saveSetting("settings", STATE.settings);
         applyTheme();
         bindIconUploads();
+        bindIconStrokeSwitch();
         rerenderMessages();
+        syncOnlineModeSwitch();
         scrollBottom();
 
     } catch (e) {
@@ -2862,11 +3491,12 @@ function updateStatusColor() {
 const origOpen = openApp;
 openApp = function(appId, page) {
     origOpen(appId, page);
+    if (appId === 'agents') syncOnlineModeSwitch();
     setTimeout(updateStatusColor, 50);
 };
 const origClose = closeApp;
-closeApp = function() {
-    origClose();
+closeApp = function(e) {
+    origClose(e);
     setTimeout(updateStatusColor, 50);
 };
 const origGoBack = goBackToChat;
@@ -3031,12 +3661,6 @@ function selectAgent(agentId) {
     STATE.settings.avatarC2 = agent.avatarC2;
     STATE.settings.avatarImage = agent.avatarImage || '';
     applyAvatar(); saveSetting("settings", STATE.settings);
-    
-    // 关闭智能体页面，打开聊天页面
-    const pAgents = getPage('agents');
-    if (pAgents) pAgents.classList.remove('active');
-    currentApp = null;
-    appStack = [];
     
     // 重新渲染消息区域
     rerenderMessages();
@@ -3350,8 +3974,8 @@ function saveCurrentChatToAgent() {
 
 // 修改 addMsg 以自动保存到当前智能体
 const origAddMsgAgent = addMsg;
-addMsg = function(content, role) {
-    const msg = origAddMsgAgent(content, role);
+addMsg = function(content, role, proxy = null) {
+    const msg = origAddMsgAgent(content, role, proxy);
     // 保存到智能体聊天记录
     if (STATE.currentAgentId) {
         saveCurrentChatToAgent();
@@ -3361,8 +3985,8 @@ addMsg = function(content, role) {
 
 // 修改 deleteMessage 以保存
 const origDeleteMsgAgent = deleteMessage;
-deleteMessage = function(msg) {
-    origDeleteMsgAgent(msg);
+deleteMessage = async function(msg) {
+    await origDeleteMsgAgent(msg);
     if (STATE.currentAgentId) {
         saveCurrentChatToAgent();
     }
@@ -3401,22 +4025,56 @@ document.querySelectorAll('.app-icon[data-app="chat"]').forEach(icon => {
 });
 
 // 智能体页面返回按钮
-if ($('backAgents')) {
-    const bAgents = $('backAgents');
-    if(bAgents) bAgents.addEventListener('click', () => {
-        const pAgents = getPage('agents');
-        if (pAgents) pAgents.classList.remove('active');
-        currentApp = null;
-        appStack = [];
+// app/uchat.js 中已经绑定了 history.back()，此处无需重复绑定
+
+// 微信风格 "+" 按钮：切换下拉菜单
+if ($('agentAddBtn')) {
+    $('agentAddBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dd = $('wechatPlusDropdown');
+        if (dd) dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
     });
 }
-
-// 新建智能体按钮
-if ($('agentAddBtn')) {
-    $('agentAddBtn').addEventListener('click', () => {
+if ($('ddAddAgent')) {
+    $('ddAddAgent').addEventListener('click', () => {
+        const dd = $('wechatPlusDropdown');
+        if (dd) dd.style.display = 'none';
         openAgentEditOverlay(null, 'create');
     });
 }
+if ($('ddShakeAgent')) {
+    $('ddShakeAgent').addEventListener('click', () => {
+        const dd = $('wechatPlusDropdown');
+        if (dd) dd.style.display = 'none';
+        // 打开摇一摇设定弹窗
+        const overlay = $('shakeOverlay');
+        const input = $('shakeWorldInput');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            if (input) input.value = '';
+            document.querySelectorAll('.shake-tag').forEach(t => t.classList.remove('active'));
+            // 重置性别、种族、性格输入
+            const genderInput = $('shakeGenderInput');
+            const raceInput = $('shakeRaceInput');
+            const personalityInput = $('shakePersonalityInput');
+            if (genderInput) genderInput.value = '';
+            if (raceInput) raceInput.value = '';
+            if (personalityInput) personalityInput.value = '';
+            
+            // 恢复已保存的 Shake API 配置
+            if ($('shakeApiUrl')) $('shakeApiUrl').value = STATE.settings.shakeApiUrl || '';
+            if ($('shakeApiKey')) $('shakeApiKey').value = STATE.settings.shakeApiKey || '';
+            if ($('shakeApiModel')) $('shakeApiModel').value = STATE.settings.shakeApiModel || '';
+            if ($('shakeApiModelSelect')) $('shakeApiModelSelect').value = '';
+        }
+    });
+}
+// 点击外部关闭下拉菜单
+document.addEventListener('click', (e) => {
+    const wrap = $('wechatPlusWrap');
+    const dd = $('wechatPlusDropdown');
+    if (wrap && dd && !wrap.contains(e.target)) dd.style.display = 'none';
+});
 
 // 搜索过滤
 if ($('agentsSearchInput')) {
@@ -3483,20 +4141,6 @@ document.addEventListener('touchstart', (e) => {
     }
 });
 
-// 修改 closeApp，关闭智能体页面同时重置
-const origCloseAppAgent = closeApp;
-closeApp = function() {
-    if (currentApp === 'agents') {
-        if (pageAgents) pageAgents.classList.remove('active');
-        currentApp = null;
-        appStack = [];
-        if (!closeFromPopstate) {
-            history.back();
-        }
-        return;
-    }
-    origCloseAppAgent();
-};
 
 // 修改 handleSend 以在发送 AI 回复后保存到智能体
 const origHandleSendAgent = handleSend;
@@ -3815,7 +4459,6 @@ if(origAgentEditConfirm) {
 
 // ===== 摇一摇盲盒智能体功能 =====
 function initShakeAgent() {
-    const entrance = $('shakeAgentEntrance');
     const overlay = $('shakeOverlay');
     const tags = document.querySelectorAll('.shake-tag');
     const input = $('shakeWorldInput');
@@ -3831,16 +4474,9 @@ function initShakeAgent() {
     let isShaking = false;
     let newAgentData = null;
 
-    if (!entrance) return;
+    if (!overlay) return;
 
-    // 1. 打开设定弹窗
-    entrance.addEventListener('click', () => {
-        overlay.style.display = 'flex';
-        input.value = '';
-        activeWorld = '';
-        tags.forEach(t => t.classList.remove('active'));
-    });
-
+    // 标签选择（打开弹窗由 ddShakeAgent 处理）
     // 2. 选择标签
     tags.forEach(tag => {
         tag.addEventListener('click', () => {
@@ -3850,6 +4486,7 @@ function initShakeAgent() {
             input.value = ''; // 选择标签清空输入框
         });
     });
+
 
     input.addEventListener('input', () => {
         if (input.value.trim()) {
@@ -3861,6 +4498,91 @@ function initShakeAgent() {
     cancel.addEventListener('click', () => {
         overlay.style.display = 'none';
     });
+
+    // 模型拉取功能
+    const shakeFetchModelsBtn = $('shakeFetchModelsBtn');
+    if (shakeFetchModelsBtn) {
+        shakeFetchModelsBtn.addEventListener('click', async () => {
+            const url = ($('shakeApiUrl') || {}).value?.trim() || STATE.settings.apiEndpoint;
+            const key = ($('shakeApiKey') || {}).value?.trim() || STATE.settings.apiKey;
+            if (!key) { showToast('请先填写 API Key (摇一摇设置或全局设置中)'); return; }
+
+            shakeFetchModelsBtn.textContent = '拉取中...';
+            shakeFetchModelsBtn.disabled = true;
+
+            try {
+                let ep = url.replace(/\/+$/, '');
+                if (!ep.endsWith('/models')) ep += '/models';
+                const res = await fetch(ep, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${key}` }
+                });
+                if (!res.ok) {
+                    let e = `拉取失败 (${res.status})`;
+                    try { const d = await res.json(); if (d.error?.message) e = d.error.message; } catch(ee) {}
+                    throw new Error(e);
+                }
+                const data = await res.json();
+                const models = data.data || data.models || [];
+                if (models.length === 0) { showToast('未找到可用模型'); return; }
+
+                const modelIds = models.map(m => m.id || m.name || m).sort();
+
+                const select = $('shakeApiModelSelect');
+                if (select) {
+                    select.innerHTML = '<option value="">自定义模型</option>';
+                    modelIds.forEach(id => {
+                        const opt = document.createElement('option');
+                        opt.value = id;
+                        opt.textContent = id;
+                        select.appendChild(opt);
+                    });
+                }
+                showToast(`已拉取 ${modelIds.length} 个模型`);
+            } catch (error) {
+                showToast(error.message || '拉取失败', 3000);
+            } finally {
+                shakeFetchModelsBtn.textContent = '拉取';
+                shakeFetchModelsBtn.disabled = false;
+            }
+        });
+    }
+
+    const shakeApiModelSelect = $('shakeApiModelSelect');
+    if (shakeApiModelSelect) {
+        shakeApiModelSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val) {
+                if ($('shakeApiModel')) $('shakeApiModel').value = val;
+            }
+        });
+    }
+
+    const shakeApiSaveBtn = $('shakeApiSaveBtn');
+    if (shakeApiSaveBtn) {
+        shakeApiSaveBtn.addEventListener('click', async () => {
+            STATE.settings.shakeApiUrl = ($('shakeApiUrl') || {}).value?.trim() || '';
+            STATE.settings.shakeApiKey = ($('shakeApiKey') || {}).value?.trim() || '';
+            STATE.settings.shakeApiModel = ($('shakeApiModel') || {}).value?.trim() || '';
+            await saveSetting('settings', STATE.settings);
+            showToast('摇一摇API配置已保存');
+        });
+    }
+
+    const shakeApiClearBtn = $('shakeApiClearBtn');
+    if (shakeApiClearBtn) {
+        shakeApiClearBtn.addEventListener('click', async () => {
+            if ($('shakeApiUrl')) $('shakeApiUrl').value = '';
+            if ($('shakeApiKey')) $('shakeApiKey').value = '';
+            if ($('shakeApiModel')) $('shakeApiModel').value = '';
+            if ($('shakeApiModelSelect')) $('shakeApiModelSelect').value = '';
+            STATE.settings.shakeApiUrl = '';
+            STATE.settings.shakeApiKey = '';
+            STATE.settings.shakeApiModel = '';
+            await saveSetting('settings', STATE.settings);
+            showToast('已清空，将使用全局聊天配置');
+        });
+    }
 
     // 3. 准备摇晃
     start.addEventListener('click', () => {
@@ -3907,6 +4629,19 @@ function initShakeAgent() {
         lastX = acc.x; lastY = acc.y; lastZ = acc.z;
     }
 
+    // 读取摇一摇弹窗中的独立 API 配置（空则回退到聊天 API）
+    function getShakeApiOverrides() {
+        const url = ($('shakeApiUrl') || {}).value?.trim() || '';
+        const key = ($('shakeApiKey') || {}).value?.trim() || '';
+        const model = ($('shakeApiModel') || {}).value?.trim() || '';
+        if (!url && !key && !model) return null; // 全部为空则使用默认
+        const ov = {};
+        if (url) ov.apiEndpoint = url;
+        if (key) ov.apiKey = key;
+        if (model) ov.model = model;
+        return ov;
+    }
+
     async function triggerShake() {
         if(isShaking) return;
         isShaking = true;
@@ -3917,8 +4652,18 @@ function initShakeAgent() {
         const animText = document.querySelectorAll('.shake-anim-text')[0];
         animText.textContent = `正在连接 [${activeWorld}] 平行宇宙...`;
         
+        // 读取性别、种族和性格选填字段
+        const selectedGender = ($('shakeGenderInput') || {}).value?.trim() || '';
+        const selectedRace = ($('shakeRaceInput') || {}).value?.trim() || '';
+        const personalityPref = ($('shakePersonalityInput') || {}).value?.trim() || '';
+
+        let extraConstraints = '';
+        if (selectedGender) extraConstraints += `\n角色的性别设定为：${selectedGender}。`;
+        if (selectedRace) extraConstraints += `\n角色的种族/物种设定为：${selectedRace}。`;
+        if (personalityPref) extraConstraints += `\n角色的性格倾向应该是：${personalityPref}。`;
+
         // 调用 LLM 生成角色
-        const prompt = `你现在是一个角色设计师。请根据提供的世界观：【${activeWorld}】，随机创造一个具有正常人类名字和独特真实性格的普通人角色。
+        const prompt = `你现在是一个角色设计师。请根据提供的世界观：【${activeWorld}】，随机创造一个具有正常人类名字和独特真实性格的普通人角色。${extraConstraints}
 请必须以纯 JSON 格式输出，不要输出任何额外的 markdown 标记（如 \`\`\`json ）。包含以下字段：
 {
   "name": "必须是一个符合该世界观的正常人类名字",
@@ -3928,7 +4673,8 @@ function initShakeAgent() {
 }`;
 
         try {
-            const resultStr = await callLLM([{role:'user', content:prompt}]);
+            const shakeOverrides = getShakeApiOverrides();
+            const resultStr = await callLLM([{role:'user', content:prompt}], shakeOverrides);
             const jsonMatch = resultStr.match(/\{[\s\S]*\}/);
             if (!jsonMatch) throw new Error("解析角色失败");
             
@@ -3955,10 +4701,11 @@ function initShakeAgent() {
             
         } catch (e) {
             console.error(e);
-            animText.textContent = "时空乱流，连接失败，请重试";
+            animText.textContent = e.message || "时空乱流，连接失败，请重试";
+            isShaking = false;
             setTimeout(() => {
                 resultOverlay.style.display = 'none';
-            }, 2000);
+            }, 3000);
         }
     }
 
@@ -4001,9 +4748,9 @@ function initShakeAgent() {
         // 写入第一句话
         STATE.agentChats[agentToSave.id].messages.push({
             id: 'msg_' + Date.now(),
-            sender: 'ai',
+            role: 'ai',
             content: newAgentData._firstMessage,
-            time: new Date().toISOString()
+            time: getTime()
         });
         
         saveAgents();
@@ -4012,7 +4759,6 @@ function initShakeAgent() {
         
         resultOverlay.style.display = 'none';
         selectAgent(agentToSave.id);
-        openApp('chat');
     });
     
     // 点击背景关闭结果弹窗
