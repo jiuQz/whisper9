@@ -24,20 +24,8 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
         return this;
     };
 }
-const pageContainer = $('pageContainer');
-const pageHome = $('pageHome');
-const pageChat = $('pageChat');
-const pageTheme = $('pageTheme');
-const pageSettings = $('pageSettings');
-const pageChatSettings = $('pageChatSettings');
-const pagePhotos = $('pagePhotos');
-const pageMusic = $('pageMusic');
-const pageSafari = $('pageSafari');
-const pageWeather = $('pageWeather');
-const pageNotes = $('pageNotes');
-const pageClock = $('pageClock');
-const messagesArea = $('messagesArea');
 const toast = $('toast');
+const getMessagesArea = () => $('messagesArea');
 
 // ===== 壁纸渐变预设 =====
 const WALLPAPERS = {
@@ -157,7 +145,10 @@ function getDateStr() {
 }
 
 function scrollBottom() {
-    requestAnimationFrame(() => { messagesArea.scrollTop = messagesArea.scrollHeight; });
+    requestAnimationFrame(() => {
+        const ma = getMessagesArea();
+        if (ma) ma.scrollTop = ma.scrollHeight;
+    });
 }
 
 function showToast(msg, dur = 2000) {
@@ -373,8 +364,18 @@ window.addEventListener('popstate', () => {
     }
 });
 
+const getPage = (appId) => {
+    const map = {
+        chat: 'pageChat', settings: 'pageSettings', theme: 'pageTheme',
+        chatSettings: 'pageChatSettings', photos: 'pagePhotos', music: 'pageMusic',
+        safari: 'pageSafari', weather: 'pageWeather', notes: 'pageNotes', clock: 'pageClock',
+        agents: 'pageAgents'
+    };
+    return map[appId] ? $(map[appId]) : null;
+};
+
 function openApp(appId, page) {
-    const targetPage = page || pageMap[appId];
+    const targetPage = page || getPage(appId);
     if (!targetPage) return;
     currentApp = appId;
     appStack.push(appId);
@@ -384,7 +385,7 @@ function openApp(appId, page) {
 
 function closeApp() {
     if (!currentApp) return;
-    const page = pageMap[currentApp];
+    const page = getPage(currentApp);
     if (page) page.classList.remove('active');
     currentApp = null;
     appStack = [];
@@ -396,13 +397,11 @@ function closeApp() {
 
 function goBackToChat() {
     // 从聊天设置返回到聊天（不关闭聊天页面）
-    const page = pageMap['chatSettings'];
+    const page = getPage('chatSettings');
     if (page) page.classList.remove('active');
     currentApp = 'chat';
     appStack = appStack.filter(a => a !== 'chatSettings');
 }
-
-const pageMap = { chat: pageChat, settings: pageSettings, theme: pageTheme, chatSettings: pageChatSettings, photos: pagePhotos, music: pageMusic, safari: pageSafari, weather: pageWeather, notes: pageNotes, clock: pageClock };
 
 // 主界面应用图标点击
 document.querySelectorAll('.app-icon[data-app]').forEach(icon => {
@@ -417,7 +416,7 @@ document.querySelectorAll('.app-icon[data-app]').forEach(icon => {
         }
         else if (app === 'settings') { openApp('settings'); }
         else if (app === 'theme') { loadThemeUI(); openApp('theme'); }
-        else if (pageMap[app]) { openApp(app); }
+        else if (getPage(app)) { openApp(app); }
         else showToast(`${icon.querySelector('.app-icon-name').textContent} (演示)`, 1200);
     });
 });
@@ -445,7 +444,7 @@ if (homeIndicator) {
 // 聊天三点菜单 → 聊天设置
 $('chatSettingsBtn').addEventListener('click', () => {
     loadSettingsUI();
-    openApp('chatSettings', pageChatSettings);
+    openApp('chatSettings');
 });
 // 收藏按钮（功能已移除）
 // ===== 上下文菜单系统 =====
@@ -506,7 +505,8 @@ function showContextMenu(x, y, msgId) {
     // 调整菜单位置
     const rect = menu.getBoundingClientRect();
     const phoneRect = document.querySelector('.phone-body').getBoundingClientRect();
-    const pageChatRect = pageChat.getBoundingClientRect();
+    const pChat = getPage('chat');
+    const pageChatRect = pChat ? pChat.getBoundingClientRect() : phoneRect;
     
     let left = x - pageChatRect.left;
     let top = y - pageChatRect.top;
@@ -701,7 +701,8 @@ function deleteMessage(msg) {
     // 从消息列表移除
     STATE.messages = STATE.messages.filter(m => m.id !== msg.id);
     // 从 DOM 移除
-    const msgEl = messagesArea.querySelector(`.message[data-id="${msg.id}"]`);
+    const ma = getMessagesArea();
+    const msgEl = ma ? ma.querySelector(`.message[data-id="${msg.id}"]`) : null;
     if (msgEl) {
         msgEl.style.transition = 'all 0.3s ease-out';
         msgEl.style.opacity = '0';
@@ -724,10 +725,12 @@ function enterMultiselectMode(msg) {
     selectedMsgs.add(msg.id);
     
     // 给消息区域添加多选样式
-    messagesArea.classList.add('multiselect-mode');
-    
+    const ma = getMessagesArea();
+    if(!ma) return;
+    ma.classList.add('multiselect-mode');
+
     // 为每条消息添加选择标记
-    messagesArea.querySelectorAll('.message').forEach(msgEl => {
+    ma.querySelectorAll('.message').forEach(msgEl => {
         if (!msgEl.querySelector('.message-select-check')) {
             const check = document.createElement('div');
             check.className = 'message-select-check';
@@ -767,7 +770,8 @@ function updateMultiselectUI() {
 
 function selectAllMessages() {
     if (!isMultiselectMode) return;
-    const allMsgEls = messagesArea.querySelectorAll('.message[data-id]');
+    const ma = getMessagesArea();
+    const allMsgEls = ma ? ma.querySelectorAll('.message[data-id]') : [];
     
     if (selectedMsgs.size === allMsgEls.length && allMsgEls.length > 0) {
         selectedMsgs.clear();
@@ -787,12 +791,15 @@ function selectAllMessages() {
 function exitMultiselectMode() {
     isMultiselectMode = false;
     selectedMsgs.clear();
-    messagesArea.classList.remove('multiselect-mode');
-    messagesArea.querySelectorAll('.message').forEach(msgEl => {
-        msgEl.classList.remove('selected');
-        const check = msgEl.querySelector('.message-select-check');
-        if (check) check.remove();
-    });
+    const ma = getMessagesArea();
+    if(ma) {
+        ma.classList.remove('multiselect-mode');
+        ma.querySelectorAll('.message').forEach(msgEl => {
+            msgEl.classList.remove('selected');
+            const check = msgEl.querySelector('.message-select-check');
+            if (check) check.remove();
+        });
+    }
     if (multiselectBar) multiselectBar.style.display = 'none';
     if ($('multiselectSelectAllBtn')) $('multiselectSelectAllBtn').textContent = '全选';
 }
@@ -800,7 +807,8 @@ function exitMultiselectMode() {
 function screenshotSelectedMessages() {
     if (selectedMsgs.size === 0) return;
     
-    const allMsgEls = Array.from(messagesArea.querySelectorAll('.message[data-id]'));
+    const ma = getMessagesArea();
+    const allMsgEls = ma ? Array.from(ma.querySelectorAll('.message[data-id]')) : [];
     const selectedEls = allMsgEls.filter(el => selectedMsgs.has(el.dataset.id));
     
     const msgs = selectedEls.map(el => getMsgById(el.dataset.id)).filter(Boolean);
@@ -929,7 +937,8 @@ async function deleteSelectedMessages() {
     
     selectedMsgs.forEach(id => {
         STATE.messages = STATE.messages.filter(m => m.id !== id);
-        const msgEl = messagesArea.querySelector(`[data-id="${id}"]`);
+        const ma = getMessagesArea();
+        const msgEl = ma ? ma.querySelector(`[data-id="${id}"]`) : null;
         if (msgEl) msgEl.remove();
     });
     
@@ -963,7 +972,8 @@ function clearQuote() {
 
 // 7. 截图气泡
 function screenshotBubble(msg) {
-    const msgEl = messagesArea.querySelector(`.message[data-id="${msg.id}"]`);
+    const ma = getMessagesArea();
+    const msgEl = ma ? ma.querySelector(`.message[data-id="${msg.id}"]`) : null;
     if (!msgEl) {
         showToast('消息元素未找到');
         return;
@@ -1071,7 +1081,8 @@ function confirmEditBubble() {
     msg.content = newContent;
     
     // 更新 DOM
-    const bubble = messagesArea.querySelector(`.message[data-id="${msg.id}"] .message-bubble`);
+    const ma = getMessagesArea();
+    const bubble = ma ? ma.querySelector(`.message[data-id="${msg.id}"] .message-bubble`) : null;
     if (bubble) {
         bubble.textContent = newContent;
     }
@@ -1091,7 +1102,8 @@ function recallMessage(msg) {
     STATE.messages = STATE.messages.filter(m => m.id !== msg.id);
     
     // 从 DOM 移除消息气泡
-    const msgEl = messagesArea.querySelector(`.message[data-id="${msg.id}"]`);
+    const ma = getMessagesArea();
+    const msgEl = ma ? ma.querySelector(`.message[data-id="${msg.id}"]`) : null;
     if (msgEl) {
         msgEl.style.transition = 'all 0.3s ease-out';
         msgEl.style.opacity = '0';
@@ -1117,7 +1129,8 @@ function recallMessage(msg) {
             } else {
                 tip.innerHTML = `<span style="font-size:12px;color:#8e8e93">对方撤回了一条消息</span>`;
             }
-            messagesArea.appendChild(tip);
+            const ma = getMessagesArea();
+            if(ma) ma.appendChild(tip);
             scrollBottom();
         }, 300);
     }
@@ -1347,7 +1360,8 @@ handleSend = async function() {
         div.className = 'message ai';
         div.dataset.id = mid;
         div.innerHTML = `<div class="message-avatar">${avHtml}</div><div class="message-content"><div class="message-bubble ai" id="sb_${mid}"></div><span class="message-time">${aiMsg.time}</span></div>`;
-        messagesArea.appendChild(div);
+        const ma = getMessagesArea();
+        if(ma) ma.appendChild(div);
         scrollBottom();
         bubble = document.getElementById(`sb_${mid}`);
     }
@@ -1516,7 +1530,7 @@ function showAgentNotification(agent, content, agentId) {
         
         // 关闭当前 app（如果有，且不是聊天页）
         if (currentApp && currentApp !== 'chat') {
-            const page = pageMap[currentApp];
+            const page = getPage(currentApp);
             if (page) page.classList.remove('active');
             currentApp = null;
             appStack = [];
@@ -1553,7 +1567,8 @@ renderMsg = function(msg) {
     origRenderMsg(msg);
     // 等待 DOM 渲染完成后绑定长按
     requestAnimationFrame(() => {
-        const msgEl = messagesArea.querySelector(`.message[data-id="${msg.id}"]`);
+        const ma = getMessagesArea();
+        const msgEl = ma ? ma.querySelector(`.message[data-id="${msg.id}"]`) : null;
         if (msgEl && !msgEl._longPressBound) {
             initLongPress(msgEl);
             msgEl._longPressBound = true;
@@ -1563,7 +1578,8 @@ renderMsg = function(msg) {
 
 // ===== 为欢迎消息绑定长按 =====
 document.addEventListener('DOMContentLoaded', () => {
-    const welcomeMsg = messagesArea.querySelector('.welcome-message');
+    const ma = getMessagesArea();
+    const welcomeMsg = ma ? ma.querySelector('.welcome-message') : null;
     if (welcomeMsg) {
         welcomeMsg.dataset.id = 'welcome';
     }
@@ -1895,7 +1911,8 @@ function renderMsg(msg) {
     ts.className = 'message-time';
     ts.textContent = msg.time;
     cd.appendChild(ts);
-    messagesArea.appendChild(d);
+    const ma = getMessagesArea();
+    if(ma) ma.appendChild(d);
 }
 
 // ===== 打字指示器 =====
@@ -1911,7 +1928,8 @@ function showTyping() {
         avHtml = `<svg viewBox="0 0 40 40" width="32" height="32"><circle cx="20" cy="20" r="20" fill="${avatarC1}"/></svg>`;
     }
     ind.innerHTML = `<div class="message-avatar">${avHtml}</div><div class="typing-dots"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
-    messagesArea.appendChild(ind);
+    const ma = getMessagesArea();
+    if(ma) ma.appendChild(ind);
     scrollBottom();
 }
 function hideTyping() { const i=$('typingInd'); if(i) i.remove(); }
@@ -2028,7 +2046,8 @@ async function handleSend() {
         div.className = 'message ai';
         div.dataset.id = mid;
         div.innerHTML = `<div class="message-avatar">${avHtml}</div><div class="message-content"><div class="message-bubble ai" id="sb_${mid}"></div><span class="message-time">${aiMsg.time}</span></div>`;
-        messagesArea.appendChild(div);
+        const ma = getMessagesArea();
+        if(ma) ma.appendChild(div);
         scrollBottom();
 
         const bubble = document.getElementById(`sb_${mid}`);
@@ -2222,7 +2241,8 @@ $('clearChatBtn').addEventListener('click', async () => {
     if (STATE.messages.length === 0) return;
     if (!(await showConfirm('确定清空所有聊天记录？'))) return;
     STATE.messages = [];
-    messagesArea.innerHTML = `<div class="message welcome-message"><div class="message-avatar"><svg viewBox="0 0 40 40" width="32" height="32"><circle cx="20" cy="20" r="20" fill="${STATE.settings.avatarC1 || '#667eea'}"/></svg></div><div class="message-content ai"><div class="message-bubble ai">👋 你好！我是 AI 智能助手，有什么可以帮你的吗？</div><span class="message-time">刚刚</span></div></div>`;
+    const ma = getMessagesArea();
+    if(ma) ma.innerHTML = `<div class="message welcome-message"><div class="message-avatar"><svg viewBox="0 0 40 40" width="32" height="32"><circle cx="20" cy="20" r="20" fill="${STATE.settings.avatarC1 || '#667eea'}"/></svg></div><div class="message-content ai"><div class="message-bubble ai">👋 你好！我是 AI 智能助手，有什么可以帮你的吗？</div><span class="message-time">刚刚</span></div></div>`;
     showToast('聊天记录已清空');
 });
 
@@ -2336,12 +2356,12 @@ function applyGlobalTheme() {
 
 function applyChatPreset() {
     const preset = (STATE.settings.theme && STATE.settings.theme.chatPreset) || 'default';
-    const pageChat = document.getElementById('pageChat');
-    if (pageChat) {
+    const pChat = document.getElementById('pageChat');
+    if (pChat) {
         if (preset && preset !== 'default') {
-            pageChat.dataset.theme = preset;
+            pChat.dataset.theme = preset;
         } else {
-            delete pageChat.dataset.theme;
+            delete pChat.dataset.theme;
         }
     }
     // 同步主题预设卡片的 active 状态
@@ -2786,15 +2806,12 @@ goBackToChat = function() {
 
 updateStatusColor();
 // ===== 智能体管理 =====
-const pageAgents = $('pageAgents');
 
 // 初始化 STATE.agents
 STATE.agents = [];
 STATE.currentAgentId = null;
 STATE.agentChats = {};
 
-// 注册 agents 页面到 pageMap
-pageMap.agents = pageAgents;
 
 // 保存 agents 到 localStorage
 async function saveAgents() { await db.agents.put({id:"agents", data: STATE.agents}); }
@@ -2945,7 +2962,8 @@ function selectAgent(agentId) {
     applyAvatar(); saveSetting("settings", STATE.settings);
     
     // 关闭智能体页面，打开聊天页面
-    if (pageAgents) pageAgents.classList.remove('active');
+    const pAgents = getPage('agents');
+    if (pAgents) pAgents.classList.remove('active');
     currentApp = null;
     appStack = [];
     
@@ -2986,13 +3004,15 @@ function updateChatHeaderForAgent(agent) {
 
 function rerenderMessages() {
     // 只移除消息和打字指示器，保留面板（收藏面板等）
-    messagesArea.querySelectorAll('.message, .typing-indicator').forEach(el => el.remove());
+    const ma = getMessagesArea();
+    if(ma) ma.querySelectorAll('.message, .typing-indicator').forEach(el => el.remove());
     STATE.messages.forEach(msg => {
         renderMsg(msg);
     });
     // 重新绑定长按
     requestAnimationFrame(() => {
-        messagesArea.querySelectorAll('.message').forEach(msgEl => {
+        const ma = getMessagesArea();
+        if(ma) ma.querySelectorAll('.message').forEach(msgEl => {
             if (!msgEl._longPressBound && msgEl.dataset.id) {
                 initLongPress(msgEl);
                 msgEl._longPressBound = true;
@@ -3311,8 +3331,10 @@ document.querySelectorAll('.app-icon[data-app="chat"]').forEach(icon => {
 
 // 智能体页面返回按钮
 if ($('backAgents')) {
-    $('backAgents').addEventListener('click', () => {
-        if (pageAgents) pageAgents.classList.remove('active');
+    const bAgents = $('backAgents');
+    if(bAgents) bAgents.addEventListener('click', () => {
+        const pAgents = getPage('agents');
+        if (pAgents) pAgents.classList.remove('active');
         currentApp = null;
         appStack = [];
     });
