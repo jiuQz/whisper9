@@ -58,7 +58,78 @@ const DEFAULT_ICON_COLORS = {
 
 let dbReady = false;
 
-// ===== 高性能存储架构 (Dexie.js + Blob + OPFS) =====
+/**
+ * ===== 高性能存储架构 (Dexie.js + Blob + OPFS) =====
+ * GitHub Pages 上外链 Dexie 可能因为网络、CDN、浏览器插件等原因加载失败。
+ * 如果没有兜底，`new Dexie()` 会直接中断整个 script.js，导致所有 App 图标点击失效。
+ */
+(function ensureDexieFallback() {
+    if (typeof window.Dexie !== 'undefined') return;
+
+    console.warn('Dexie 未加载，已启用 localStorage 降级存储。图片/Blob 仅在当前会话中可用。');
+
+    class LocalStore {
+        constructor(dbName, storeName) {
+            this.key = `${dbName}:${storeName}`;
+            this.memory = new Map();
+        }
+
+        _read() {
+            try {
+                return JSON.parse(localStorage.getItem(this.key) || '{}');
+            } catch (_) {
+                return {};
+            }
+        }
+
+        _write(data) {
+            try {
+                localStorage.setItem(this.key, JSON.stringify(data));
+            } catch (_) {}
+        }
+
+        async put(record) {
+            if (!record || record.id === undefined) return;
+            if (record.data instanceof Blob || record.value instanceof Blob) {
+                this.memory.set(record.id, record);
+                return;
+            }
+            const data = this._read();
+            data[record.id] = record;
+            this._write(data);
+        }
+
+        async get(id) {
+            if (this.memory.has(id)) return this.memory.get(id);
+            return this._read()[id];
+        }
+
+        async delete(id) {
+            this.memory.delete(id);
+            const data = this._read();
+            delete data[id];
+            this._write(data);
+        }
+    }
+
+    window.Dexie = class DexieFallback {
+        constructor(name) {
+            this.name = name;
+        }
+
+        version() {
+            return {
+                stores: (schema) => {
+                    Object.keys(schema || {}).forEach(storeName => {
+                        this[storeName] = new LocalStore(this.name, storeName);
+                    });
+                    return this;
+                }
+            };
+        }
+    };
+})();
+
 const db = new Dexie('UChatDB');
 db.version(1).stores({
     settings: 'id', // store configuration
