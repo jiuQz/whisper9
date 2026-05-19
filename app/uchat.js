@@ -22,31 +22,41 @@ window.AppRegistry.push({
                                 <div class="header-status">在线</div>
                             </div>
                         </div>
-                        <button class="header-btn" id="favoritesBtn" title="收藏消息" style="margin-right:2px">
-                            <svg viewBox="0 0 24 24" width="21" height="21">
-                                <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="none" stroke="currentColor" stroke-width="1.8"/>
-                            </svg>
-                        </button>
-                        <button class="header-btn" id="chatSettingsBtn">
-                            <svg viewBox="0 0 24 24" width="22" height="22">
-                                <circle cx="12" cy="5" r="2" fill="currentColor"/>
-                                <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                                <circle cx="12" cy="19" r="2" fill="currentColor"/>
-                            </svg>
-                        </button>
+                        <div class="header-right" style="display:flex; align-items:center;">
+                            <div class="agents-online-mode-wrap" title="线下模式：开启后按面对面/同处场景聊天；关闭则默认线上手机聊天">
+                                <span class="agents-online-mode-label">线下</span>
+                                <label class="ios-switch agents-online-switch">
+                                    <input type="checkbox" id="onlineModeSwitch">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            <button class="header-btn" id="favoritesBtn" title="收藏消息" style="margin-right:2px">
+                                <svg viewBox="0 0 24 24" width="21" height="21">
+                                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                                </svg>
+                            </button>
+                            <button class="header-btn" id="chatSettingsBtn">
+                                <svg viewBox="0 0 24 24" width="22" height="22">
+                                    <circle cx="12" cy="5" r="2" fill="currentColor"/>
+                                    <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                                    <circle cx="12" cy="19" r="2" fill="currentColor"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="messages-area" id="messagesArea">
-                        <div class="favorites-panel" id="favoritesPanel" style="display:none">
-                            <div class="favorites-panel-header">
-                                <span>收藏消息</span>
-                                <button class="close-favorites" id="closeFavorites">
-                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
-                                </button>
-                            </div>
-                            <div class="favorites-list" id="favoritesList">
-                                <div class="favorites-empty">暂无收藏消息</div>
-                            </div>
+                    </div>
+
+                    <div class="favorites-panel" id="favoritesPanel" style="display:none">
+                        <div class="favorites-panel-header">
+                            <span>收藏消息</span>
+                            <button class="close-favorites" id="closeFavorites">
+                                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+                        <div class="favorites-list" id="favoritesList">
+                            <div class="favorites-empty">暂无收藏消息</div>
                         </div>
                     </div>
 
@@ -72,9 +82,14 @@ window.AppRegistry.push({
                                     <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z" fill="currentColor"/>
                                 </svg>
                             </button>
-                            <button class="send-btn" id="sendBtn" style="width: auto; padding: 0 12px; background: var(--ios-blue); color: white; border-radius: 16px; font-size: 14px; font-weight: 500; height: 32px; display: flex; align-items: center; justify-content: center; margin-left: 8px;">
+                            <button class="send-btn" id="newlineBtn" style="width: auto; padding: 0 12px; background: #e5e5ea; color: #1a1a1a; border-radius: 16px; font-size: 14px; font-weight: 500; height: 32px; display: none; align-items: center; justify-content: center; margin-left: 4px;">
+                                回车
+                            </button>
+                            <button class="send-btn" id="sendBtn" style="width: auto; padding: 0 12px; background: var(--ios-blue); color: white; border-radius: 16px; font-size: 14px; font-weight: 500; height: 32px; display: flex; align-items: center; justify-content: center; margin-left: 4px;">
                                 发送
                             </button>
+                            <button class="send-btn" id="generateBtn" style="width: 32px; padding: 0; background: transparent; border: none; height: 32px; display: none; align-items: center; justify-content: center; margin-left: 4px; cursor: pointer;">
+                                <img src="./image/miaozhua.jpg" alt="生成" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;"></button>
                         </div>
                     </div>
 
@@ -82,32 +97,29 @@ window.AppRegistry.push({
                         <div class="ext-grid" id="extGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">
                             <div class="ext-item" id="extVoiceBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
                                 <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#007aff;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></div>
-                                <span style="font-size:12px; color:#8e8e93;">伪装语音</span>
+                                <span style="font-size:12px; color:#8e8e93;">语音</span>
                             </div>
                             <div class="ext-item" id="extImageBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
                                 <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#34c759;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
-                                <span style="font-size:12px; color:#8e8e93;">文字图片</span>
+                                <span style="font-size:12px; color:#8e8e93;">图片</span>
                             </div>
-                            <div class="ext-item" id="extCustomEmojiBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
-                                <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#ff9500;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg></div>
-                                <span style="font-size:12px; color:#8e8e93;">自定义表情</span>
+                            <div class="ext-item" id="extLocationBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
+                                <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#ff3b30;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
+                                <span style="font-size:12px; color:#8e8e93;">发送位置</span>
                             </div>
-                        </div>
-                        <div class="custom-emoji-panel" id="customEmojiPanel" style="display:none; background:white; border-radius:12px; overflow:hidden;">
-                            <div class="custom-emoji-header" style="display:flex; justify-content:space-between; padding: 10px 15px; border-bottom:1px solid var(--border-color);">
-                                <button id="customEmojiBackBtn" style="background:none;border:none;color:var(--ios-blue);font-size:14px;padding:0;">返回</button>
-                                <span style="font-size:14px;font-weight:600;">自定义表情包</span>
-                                <button id="customEmojiAddBtn" style="background:none;border:none;color:var(--ios-blue);font-size:14px;padding:0;">添加</button>
-                            </div>
-                            <div class="custom-emoji-grid" id="customEmojiGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 15px; max-height: 200px; overflow-y:auto;">
-                                <!-- 自定义表情项在这里生成 -->
+                            <div class="ext-item" id="extTransferBtn" style="display:flex; flex-direction:column; align-items:center; cursor:pointer;">
+                                <div class="ext-icon" style="width:50px; height:50px; background:white; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:6px; box-shadow:0 1px 3px rgba(0,0,0,0.1); color:#fa9d3b;"><svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div>
+                                <span style="font-size:12px; color:#8e8e93;">转账</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="emoji-picker" id="emojiPicker">
-                        <div class="emoji-picker-header">
-                            <span>表情符号</span>
+                        <div class="emoji-picker-header" style="display:flex; justify-content:space-between; padding: 10px 15px; align-items:center;">
+                            <div class="emoji-tabs" style="display:flex; gap:16px;">
+                                <span class="emoji-tab active" id="tabEmoji" style="cursor:pointer; font-weight:600; color:var(--ios-blue);">Emoji</span>
+                                <span class="emoji-tab" id="tabCustomEmoji" style="cursor:pointer; color:#8e8e93;">表情包</span>
+                            </div>
                             <button class="close-emoji" id="closeEmoji">
                                 <svg viewBox="0 0 24 24" width="18" height="18">
                                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
@@ -115,6 +127,15 @@ window.AppRegistry.push({
                             </button>
                         </div>
                         <div class="emoji-grid" id="emojiGrid"></div>
+                        <div class="custom-emoji-container" id="customEmojiContainer" style="display:none; padding:10px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                                <button id="batchImportEmojiBtn" style="background:var(--ios-blue); color:white; border:none; padding:5px 10px; border-radius:6px; font-size:12px; cursor:pointer;">批量导入</button>
+                                <button id="customEmojiAddBtn" style="background:var(--ios-blue); color:white; border:none; padding:5px 10px; border-radius:6px; font-size:12px; cursor:pointer;">添加</button>
+                            </div>
+                            <div class="custom-emoji-grid" id="customEmojiGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-height: 200px; overflow-y:auto;">
+                                <!-- 自定义表情项在这里生成 -->
+                            </div>
+                        </div>
                     </div>
                     <div class="quote-preview-bar" id="quotePreviewBar" style="display:none">
                         <div class="quote-content" id="quotePreviewContent"></div>
@@ -239,28 +260,23 @@ window.AppRegistry.push({
                             </svg>
                         </button>
                         <div class="header-center"><div class="header-name">Uchat</div></div>
-                        <div class="agents-online-mode-wrap" title="线上模式：隔着手机聊天，去除动作神态">
-                            <span class="agents-online-mode-label">线上</span>
-                            <label class="ios-switch agents-online-switch">
-                                <input type="checkbox" id="onlineModeSwitch" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="wechat-plus-wrap" id="wechatPlusWrap">
-                            <button class="wechat-plus-btn" id="agentAddBtn">
-                                <svg viewBox="0 0 24 24" width="22" height="22">
-                                    <circle cx="12" cy="12" r="10.5" stroke="#007aff" stroke-width="1.5" fill="none"/>
-                                    <path d="M12 7.5v9M7.5 12h9" stroke="#007aff" stroke-width="1.5" stroke-linecap="round"/>
-                                </svg>
-                            </button>
-                            <div class="wechat-plus-dropdown" id="wechatPlusDropdown" style="display:none">
-                                <div class="wechat-dd-item" id="ddAddAgent">
-                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="#fff"/></svg>
-                                    <span>添加好友</span>
-                                </div>
-                                <div class="wechat-dd-item" id="ddShakeAgent">
-                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 12c0 1.74.5 3.37 1.41 4.84l-1.2 3.56 3.66-1.14A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12zm4-1h4V7h4v4h4v4h-4v4h-4v-4H6v-4z" fill="#fff"/></svg>
-                                    <span>摇一摇</span>
+                        <div class="header-right" style="display:flex; align-items:center;">
+                            <div class="wechat-plus-wrap" id="wechatPlusWrap">
+                                <button class="wechat-plus-btn" id="agentAddBtn">
+                                    <svg viewBox="0 0 24 24" width="22" height="22">
+                                        <circle cx="12" cy="12" r="10.5" stroke="#007aff" stroke-width="1.5" fill="none"/>
+                                        <path d="M12 7.5v9M7.5 12h9" stroke="#007aff" stroke-width="1.5" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+                                <div class="wechat-plus-dropdown" id="wechatPlusDropdown" style="display:none">
+                                    <div class="wechat-dd-item" id="ddAddAgent">
+                                        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="#fff"/></svg>
+                                        <span>添加好友</span>
+                                    </div>
+                                    <div class="wechat-dd-item" id="ddShakeAgent">
+                                        <svg viewBox="0 0 24 24" width="18" height="18"><path d="M2 12c0 1.74.5 3.37 1.41 4.84l-1.2 3.56 3.66-1.14A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12zm4-1h4V7h4v4h4v4h-4v4h-4v-4H6v-4z" fill="#fff"/></svg>
+                                        <span>摇一摇</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -275,14 +291,14 @@ window.AppRegistry.push({
                     <!-- 新建/编辑智能体弹窗 -->
                     <div class="agent-edit-overlay" id="agentEditOverlay" style="display:none">
                         <div class="agent-edit-dialog">
-                            <div class="agent-edit-title" id="agentEditTitle">新建 AI 角色</div>
+                            <div class="agent-edit-title" id="agentEditTitle">添加好友</div>
                             <div class="agent-edit-field">
-                                <label class="agent-edit-label">名称</label>
-                                <input type="text" class="agent-edit-input" id="agentEditName" placeholder="智能体名称" autocomplete="off">
+                                <label class="agent-edit-label">昵称</label>
+                                <input type="text" class="agent-edit-input" id="agentEditName" placeholder="" autocomplete="off">
                             </div>
                             <div class="agent-edit-field">
-                                <label class="agent-edit-label">系统提示词</label>
-                                <textarea class="agent-edit-textarea" id="agentEditPrompt" rows="3" placeholder="设置智能体的角色和行为..."></textarea>
+                                <label class="agent-edit-label">你的人设</label>
+                                <textarea class="agent-edit-textarea" id="agentEditPrompt" rows="3" placeholder=""></textarea>
                             </div>
                             <div class="agent-edit-field">
                                 <label class="agent-edit-label">头像</label>
@@ -364,6 +380,10 @@ window.AppRegistry.push({
                             <div class="shake-extra-section">
                                 <div class="shake-field-label">性格倾向（选填）</div>
                                 <input type="text" class="shake-extra-input" id="shakePersonalityInput" placeholder="如：温柔、高冷、话痨、毒舌..." autocomplete="off">
+                            </div>
+                            <div class="shake-extra-section">
+                                <div class="shake-field-label">不想要的角色/套路（选填）</div>
+                                <textarea class="shake-extra-input" id="shakeNegativePrompt" rows="2" placeholder="例如：霸总、病娇、校花、杀手、顾北辰、苏苏..." autocomplete="off" style="resize:vertical; min-height:58px;"></textarea>
                             </div>
                             <div class="shake-api-section">
                                 <div class="shake-api-title">⚙️ API 配置 <span class="shake-api-hint">（空则使用聊天API）</span></div>

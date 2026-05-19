@@ -80,6 +80,47 @@ window.AppRegistry.push({
                             </div>
                         </div>
 
+                        <!-- 自定义气泡 CSS -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">自定义气泡 CSS</div>
+                            <div class="settings-group-box">
+                                <div class="settings-row">
+                                    <label class="settings-row-label">气泡 CSS 预设</label>
+                                    <div style="display:flex; width: 100%; gap:8px;">
+                                        <select class="settings-row-select" id="bubbleCssPresetSelect" style="flex:1">
+                                            <option value="">自定义...</option>
+                                        </select>
+                                        <button class="settings-btn-small" id="bubbleCssPresetSaveBtn">保存当前</button>
+                                        <button class="settings-btn-small danger" id="bubbleCssPresetDeleteBtn">删除</button>
+                                    </div>
+                                    <div style="font-size:12px;color:#8e8e93;margin-top:6px;line-height:1.4;">
+                                        选择预设会立即填充并应用到下方文本框。
+                                    </div>
+                                </div>
+                                <div class="settings-row">
+                                    <label class="settings-row-label" style="display:flex;align-items:center;justify-content:space-between;">
+                                        <span>专门美化对话气泡的 CSS</span>
+                                        <label class="ios-switch" style="transform:scale(0.78);transform-origin:right center;">
+                                            <input type="checkbox" id="bubbleCustomCssEnable">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </label>
+                                    <textarea class="settings-row-textarea" id="bubbleCustomCss" rows="6" spellcheck="false" placeholder="/* 仅作用于聊天气泡，例如： */
+.message-bubble.user { border-radius: 18px 18px 4px 18px !important; }
+.message-bubble.ai   { border-radius: 18px 18px 18px 4px !important; }
+.message-bubble.user { background: linear-gradient(135deg,#ff9a9e,#fad0c4) !important; }
+"></textarea>
+                                    <div style="display:flex;gap:8px;margin-top:8px;">
+                                        <button class="settings-btn-small" id="bubbleCustomCssApplyBtn">应用</button>
+                                        <button class="settings-btn-small danger" id="bubbleCustomCssResetBtn">清空</button>
+                                    </div>
+                                    <div style="font-size:12px;color:#8e8e93;margin-top:6px;line-height:1.4;">
+                                        样式只会注入到当前页面（手机内），关闭开关或清空可立即恢复。
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- 聊天背景图片 -->
                         <div class="settings-section">
                             <div class="settings-section-title">聊天背景图片</div>
@@ -90,6 +131,7 @@ window.AppRegistry.push({
                                     </div>
                                     <div class="chat-bg-actions">
                                         <button class="chat-bg-btn" id="chatBgUploadBtn">上传图片</button>
+                                        <button class="chat-bg-btn secondary" id="chatBgUrlBtn">URL 上传</button>
                                         <button class="chat-bg-btn danger" id="chatBgResetBtn">移除</button>
                                         <input type="file" id="chatBgFileInput" accept="image/*" style="display:none">
                                     </div>
