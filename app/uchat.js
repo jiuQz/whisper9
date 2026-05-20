@@ -128,9 +128,11 @@ window.AppRegistry.push({
                         </div>
                         <div class="emoji-grid" id="emojiGrid"></div>
                         <div class="custom-emoji-container" id="customEmojiContainer" style="display:none; padding:10px;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                                <button id="batchImportEmojiBtn" style="background:var(--ios-blue); color:white; border:none; padding:5px 10px; border-radius:6px; font-size:12px; cursor:pointer;">批量导入</button>
-                                <button id="customEmojiAddBtn" style="background:var(--ios-blue); color:white; border:none; padding:5px 10px; border-radius:6px; font-size:12px; cursor:pointer;">添加</button>
+                            <div style="display:flex; gap: 10px; margin-bottom:10px;">
+                                <button id="batchImportUrlBtn" style="flex:1; background:transparent; color:var(--ios-blue); border:1px solid var(--ios-blue); padding:6px 0; border-radius:6px; font-size:12px; cursor:pointer; text-align:center;">批量URL</button>
+                                <button id="batchImportEmojiBtn" style="flex:1; background:transparent; color:var(--ios-blue); border:1px solid var(--ios-blue); padding:6px 0; border-radius:6px; font-size:12px; cursor:pointer; text-align:center;">批量图片</button>
+                                <input type="file" id="batchImportEmojiInput" accept="image/*" multiple style="display:none">
+                                <button id="customEmojiAddBtn" style="flex:1; background:transparent; color:var(--ios-blue); border:1px solid var(--ios-blue); padding:6px 0; border-radius:6px; font-size:12px; cursor:pointer; text-align:center;">单个添加</button>
                             </div>
                             <div class="custom-emoji-grid" id="customEmojiGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-height: 200px; overflow-y:auto;">
                                 <!-- 自定义表情项在这里生成 -->

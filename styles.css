@@ -4240,7 +4240,8 @@ body[data-global-theme="midnight"] .wechat-dd-item + .wechat-dd-item {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-attachment: local;
+    /* scroll：背景固定在可视区，不随消息滚动；裁多少就展现多少 */
+    background-attachment: scroll;
     position: relative;
 }
 
@@ -4657,6 +4658,128 @@ body[data-global-theme="midnight"] .error-popup-btn {
     text-align: center;
     background: rgba(0,0,0,0.45);
     line-height: 1.5;
+}
+
+/* ============================================
+   微信风格转账与定位卡片
+   ============================================ */
+.wechat-transfer-card {
+    width: 220px;
+    background: #f89c3b;
+    border-radius: 8px;
+    overflow: hidden;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.wt-top {
+    display: flex;
+    padding: 12px 14px;
+    align-items: center;
+    gap: 12px;
+}
+.wt-icon {
+    width: 36px;
+    height: 36px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f89c3b;
+    flex-shrink: 0;
+}
+.wt-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+}
+.wt-amount {
+    font-size: 16px;
+    font-weight: 500;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    text-align: left;
+}
+.wt-remark {
+    font-size: 12px;
+    opacity: 0.85;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    text-align: left;
+}
+.wt-bottom {
+    padding: 6px 14px;
+    font-size: 11px;
+    background: #fff;
+    color: #999;
+    text-align: left;
+}
+
+.wechat-location-card {
+    width: 220px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.wl-info {
+    padding: 10px 12px;
+    background: #fff;
+    color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.wl-name {
+    font-size: 15px;
+    font-weight: 500;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: visible;
+    text-align: center;
+    color: #333;
+    position: relative;
+    padding-top: 8px; /* 为上面的猫耳朵留出空间 */
+}
+.wl-name::before,
+.wl-name::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-bottom: 8px solid #333; /* 黑色猫耳朵 */
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+}
+.wl-name::before {
+    left: 0;
+    transform: rotate(-25deg);
+}
+.wl-name::after {
+    right: 0;
+    transform: rotate(25deg);
+}
+.wl-map {
+    height: 90px;
+    background: #e5e5e5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: repeating-linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0), repeating-linear-gradient(45deg, #f0f0f0 25%, #e5e5e5 25%, #e5e5e5 75%, #f0f0f0 75%, #f0f0f0);
+    background-position: 0 0, 10px 10px;
+    background-size: 20px 20px;
+    position: relative;
+    overflow: hidden;
 }
 
 /* URL 输入小弹窗（共用 prompt 样式即可，这里只调按钮区） */

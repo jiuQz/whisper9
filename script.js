@@ -375,7 +375,7 @@ function showPrompt(msg, title = '请输入', placeholder = '') {
                 <div class="custom-prompt-title"></div>
                 <div class="custom-prompt-msg"></div>
                 <div class="custom-prompt-input-wrap">
-                    <input type="text" class="custom-prompt-input" autocomplete="off">
+                    <textarea class="custom-prompt-input" style="height: 120px; resize: none; border-radius: 6px; padding: 8px; border: 1px solid rgba(0,0,0,0.1); width: 100%; box-sizing: border-box;" autocomplete="off"></textarea>
                 </div>
                 <div class="custom-prompt-actions">
                     <button class="custom-prompt-btn cancel">取消</button>
@@ -419,9 +419,12 @@ function showPrompt(msg, title = '请输入', placeholder = '') {
         btnCancel.addEventListener('click', onCancel);
         btnConfirm.addEventListener('click', onConfirm);
         
-        // 自动聚焦 & 回车确认
+        // 自动聚焦 & 回车确认（对于多行文本框，如果是 ctrl+enter 或 shift+enter 才确认，单按 enter 换行）
         inputEl.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') onConfirm();
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                onConfirm();
+            }
         });
 
         overlay.style.display = 'flex';
@@ -1071,131 +1074,109 @@ function exitMultiselectMode() {
     updateMultiselectUI();
 }
 
-function screenshotSelectedMessages() {
+async function screenshotSelectedMessages() {
     if (selectedMsgs.size === 0) return;
-    
+
     const ma = getMessagesArea();
     const allMsgEls = ma ? Array.from(ma.querySelectorAll('.message[data-id]')) : [];
+    // 按页面中实际出现顺序选取选中的元素
     const selectedEls = allMsgEls.filter(el => selectedMsgs.has(el.dataset.id));
-    
-    const msgs = selectedEls.map(el => getMsgById(el.dataset.id)).filter(Boolean);
-    if (msgs.length === 0) return;
-    
+    if (selectedEls.length === 0) return;
+
+    // 闪光动效
+    const phoneBody = document.querySelector('.phone-body');
     const flash = document.createElement('div');
     flash.className = 'screenshot-flash';
-    document.querySelector('.phone-body').appendChild(flash);
+    if (phoneBody) phoneBody.appendChild(flash);
     setTimeout(() => flash.remove(), 500);
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const scale = 2;
-    const padding = 20;
-    const bubblePadding = 12;
-    const lineHeight = 22;
-    const maxWidth = 260; 
-    const canvasWidth = 375; 
-    
-    let totalHeight = padding;
-    const bubblesData = msgs.map(msg => {
-        ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-        const lines = [];
-        const paragraphs = msg.content.split('\n');
-        paragraphs.forEach(p => {
-            if (p === '') {
-                lines.push('');
-                return;
-            }
-            let currentLine = '';
-            for (let i = 0; i < p.length; i++) {
-                const char = p[i];
-                const testLine = currentLine + char;
-                if (ctx.measureText(testLine).width > maxWidth - bubblePadding * 2 && currentLine.length > 0) {
-                    lines.push(currentLine);
-                    currentLine = char;
+    if (typeof html2canvas !== 'function') {
+        showToast('截图组件未加载');
+        return;
+    }
+
+    // 构建一个临时的离屏容器，把选中消息的克隆体顺序拼接到一起，
+    // 这样 html2canvas 只渲染这些消息，不会截到聊天框外面任何东西。
+    const wrap = document.createElement('div');
+    // 让它在视觉上不可见但可被 html2canvas 捕获
+    wrap.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: -10000px;
+        width: ${ma ? ma.clientWidth : 360}px;
+        padding: 14px;
+        background: ${getComputedStyle(ma || document.body).backgroundColor || '#f2f2f7'};
+        box-sizing: border-box;
+        z-index: -1;
+        pointer-events: none;
+    `;
+
+    // 如果开启了自定义背景，把背景图也带上
+    const pageChat = document.getElementById('pageChat');
+    if (pageChat && pageChat.getAttribute('data-chat-bg') === '1') {
+        const bg = getComputedStyle(ma).backgroundImage;
+        if (bg && bg !== 'none') {
+            wrap.style.backgroundImage = bg;
+            wrap.style.backgroundSize = 'cover';
+            wrap.style.backgroundPosition = 'center';
+            wrap.style.backgroundRepeat = 'no-repeat';
+        }
+    }
+
+    selectedEls.forEach(el => {
+        const clone = el.cloneNode(true);
+        // 强制保留动画结束后的样式
+        clone.style.animation = 'none';
+        clone.style.opacity = '1';
+        clone.style.transform = 'none';
+        wrap.appendChild(clone);
+    });
+
+    document.body.appendChild(wrap);
+
+    try {
+        const canvas = await html2canvas(wrap, {
+            backgroundColor: null,
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            width: wrap.offsetWidth,
+            height: wrap.offsetHeight
+        });
+
+        canvas.toBlob(async (blob) => {
+            if (!blob) { showToast('截图失败'); return; }
+            try {
+                if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+                    await navigator.clipboard.write([ new ClipboardItem({ 'image/png': blob }) ]);
+                    showToast('长截图已复制到剪贴板');
                 } else {
-                    currentLine = testLine;
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `chat-${Date.now()}.png`;
+                    document.body.appendChild(a); a.click();
+                    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+                    showToast('长截图已下载');
                 }
-            }
-            if (currentLine) lines.push(currentLine);
-        });
-        const bubbleHeight = lines.length * lineHeight + bubblePadding * 2;
-        const data = { msg, lines, height: bubbleHeight, y: totalHeight };
-        totalHeight += bubbleHeight + 15;
-        return data;
-    });
-    totalHeight += padding;
-    
-    canvas.width = canvasWidth * scale;
-    canvas.height = totalHeight * scale;
-    ctx.scale(scale, scale);
-    
-    ctx.fillStyle = '#f2f2f7';
-    ctx.fillRect(0, 0, canvasWidth, totalHeight);
-    
-    bubblesData.forEach(b => {
-        const isUser = b.msg.role === 'user';
-        const bgColor = isUser ? '#007aff' : '#ffffff';
-        const textColor = isUser ? '#ffffff' : '#1a1a1a';
-        
-        ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-        
-        let maxLineWidth = 0;
-        b.lines.forEach(l => {
-            const w = ctx.measureText(l).width;
-            if (w > maxLineWidth) maxLineWidth = w;
-        });
-        const bubbleWidth = maxLineWidth + bubblePadding * 2;
-        
-        const x = isUser ? canvasWidth - padding - bubbleWidth : padding + 40;
-        
-        if (isUser) {
-            ctx.fillStyle = '#007aff';
-            ctx.beginPath();
-            ctx.arc(canvasWidth - padding + 15, b.y + 15, 15, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('我', canvasWidth - padding + 15, b.y + 15);
-        } else {
-            ctx.fillStyle = '#667eea';
-            ctx.beginPath();
-            ctx.arc(padding + 15, b.y + 15, 15, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('AI', padding + 15, b.y + 15);
-        }
-        
-        ctx.fillStyle = bgColor;
-        ctx.beginPath();
-        ctx.roundRect(x, b.y, bubbleWidth, b.height, 14);
-        ctx.fill();
-        
-        ctx.fillStyle = textColor;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-        b.lines.forEach((line, i) => {
-            ctx.fillText(line, x + bubblePadding, b.y + bubblePadding + i * lineHeight);
-        });
-    });
-    
-    canvas.toBlob(blob => {
-        if (blob) {
-            navigator.clipboard.write([
-                new ClipboardItem({ 'image/png': blob })
-            ]).then(() => {
-                showToast('长截图已复制到剪贴板');
                 exitMultiselectMode();
-            }).catch(() => {
-                showToast('截图失败');
-            });
-        }
-    });
+            } catch (err) {
+                showToast('截图复制失败，已下载');
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `chat-${Date.now()}.png`;
+                document.body.appendChild(a); a.click();
+                setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+                exitMultiselectMode();
+            }
+        }, 'image/png');
+    } catch (err) {
+        console.error('screenshotSelectedMessages error:', err);
+        showToast('截图失败：' + (err && err.message ? err.message : '未知错误'));
+    } finally {
+        // 清理临时容器
+        setTimeout(() => { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); }, 500);
+    }
 }
 
 async function deleteSelectedMessages() {
@@ -1237,72 +1218,70 @@ function clearQuote() {
     if (quotePreviewBar) quotePreviewBar.style.display = 'none';
 }
 
-// 7. 截图气泡
-function screenshotBubble(msg) {
+// 7. 截图气泡（使用 html2canvas 真实渲染 DOM，所见即所得，仅截取气泡本身）
+async function screenshotBubble(msg) {
     const ma = getMessagesArea();
     const msgEl = ma ? ma.querySelector(`.message[data-id="${msg.id}"]`) : null;
     if (!msgEl) {
         showToast('消息元素未找到');
         return;
     }
-    
-    const bubble = msgEl.querySelector('.message-bubble');
-    if (!bubble) {
-        showToast('气泡未找到');
-        return;
-    }
-    
-    // 创建闪光效果
+
+    // 闪光动效
+    const phoneBody = document.querySelector('.phone-body');
     const flash = document.createElement('div');
     flash.className = 'screenshot-flash';
-    document.querySelector('.phone-body').appendChild(flash);
+    if (phoneBody) phoneBody.appendChild(flash);
     setTimeout(() => flash.remove(), 500);
-    
-    // 使用 Canvas 截图
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const rect = bubble.getBoundingClientRect();
-    const padding = 12;
-    const scale = 2;
-    
-    canvas.width = (rect.width + padding * 2) * scale;
-    canvas.height = (rect.height + padding * 2) * scale;
-    ctx.scale(scale, scale);
-    
-    // 绘制背景
-    const bgColor = msg.role === 'user' ? '#007aff' : '#ffffff';
-    const radius = 14;
-    ctx.fillStyle = bgColor;
-    ctx.beginPath();
-    ctx.roundRect(padding, padding, rect.width, rect.height, radius);
-    ctx.fill();
-    
-    // 绘制文字
-    ctx.fillStyle = msg.role === 'user' ? '#ffffff' : '#1a1a1a';
-    ctx.font = '15px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif';
-    ctx.textBaseline = 'top';
-    
-    const maxWidth = rect.width - 20;
-    const lineHeight = 22;
-    const text = msg.content;
-    const lines = wrapText(ctx, text, maxWidth);
-    
-    lines.forEach((line, i) => {
-        ctx.fillText(line, padding + 10, padding + 10 + i * lineHeight);
-    });
-    
-    // 复制到剪贴板
-    canvas.toBlob(blob => {
-        if (blob) {
-            navigator.clipboard.write([
-                new ClipboardItem({ 'image/png': blob })
-            ]).then(() => {
-                showToast('截图已复制到剪贴板');
-            }).catch(() => {
-                showToast('截图失败');
-            });
-        }
-    });
+
+    if (typeof html2canvas !== 'function') {
+        showToast('截图组件未加载');
+        return;
+    }
+
+    try {
+        // 仅截取消息整行（包含头像 + 气泡），裁剪范围严格限定在该 .message 元素内
+        const canvas = await html2canvas(msgEl, {
+            backgroundColor: null,
+            scale: window.devicePixelRatio > 1 ? 2 : 2,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            // 关键：让 html2canvas 严格只渲染目标节点尺寸，不向外扩展
+            width: msgEl.offsetWidth,
+            height: msgEl.offsetHeight,
+            windowWidth: document.documentElement.scrollWidth,
+            windowHeight: document.documentElement.scrollHeight
+        });
+
+        canvas.toBlob(async (blob) => {
+            if (!blob) { showToast('截图失败'); return; }
+            try {
+                if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+                    await navigator.clipboard.write([ new ClipboardItem({ 'image/png': blob }) ]);
+                    showToast('截图已复制到剪贴板');
+                } else {
+                    // 兜底：浏览器不支持剪贴板时直接下载
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = `bubble-${Date.now()}.png`;
+                    document.body.appendChild(a); a.click();
+                    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+                    showToast('截图已下载');
+                }
+            } catch (err) {
+                showToast('截图复制失败，已下载');
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `bubble-${Date.now()}.png`;
+                document.body.appendChild(a); a.click();
+                setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+            }
+        }, 'image/png');
+    } catch (err) {
+        console.error('screenshotBubble error:', err);
+        showToast('截图失败：' + (err && err.message ? err.message : '未知错误'));
+    }
 }
 
 function wrapText(ctx, text, maxWidth) {
@@ -2178,7 +2157,35 @@ function getMsgInnerHtml(msg) {
             innerContent = msg.role === 'ai' ? renderMD(msg.content) : esc(msg.content).replace(/\n/g, '<br>');
         }
     } else {
-        innerContent = msg.role === 'ai' ? renderMD(msg.content) : esc(msg.content).replace(/\n/g, '<br>');
+        const transferMatch = typeof msg.content === 'string' && msg.content.match(/^\[向你转账 ([\d.]+)元(?:，备注：(.*?))?\]$/);
+        const locMatch = typeof msg.content === 'string' && msg.content.match(/^\[发送了定位：(.*?)\]$/);
+        
+        if (transferMatch) {
+            const amount = transferMatch[1];
+            const remark = transferMatch[2] || '转账';
+            innerContent = `<div class="wechat-transfer-card">
+                <div class="wt-top">
+                    <div class="wt-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.22 4.4 3.79 2.54.58 3.32 1.34 3.32 2.39 0 1.07-1.05 1.95-2.91 1.95-2.02 0-2.88-.93-2.96-2.27H6.71c.12 2.18 1.54 3.67 3.79 4.19v2h3v-2.1c1.98-.38 3.5-1.63 3.5-3.6 0-2.27-1.8-3.15-4.2-3.71z"/></svg></div>
+                    <div class="wt-info">
+                        <div class="wt-amount">￥${amount}</div>
+                        <div class="wt-remark">${esc(remark)}</div>
+                    </div>
+                </div>
+                <div class="wt-bottom">wink转账</div>
+            </div>`;
+        } else if (locMatch) {
+            const locName = locMatch[1];
+            innerContent = `<div class="wechat-location-card">
+                <div class="wl-info">
+                    <div class="wl-name">${esc(locName)}</div>
+                </div>
+                <div class="wl-map">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="#fa9d3b" style="position: relative; z-index: 1;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                </div>
+            </div>`;
+        } else {
+            innerContent = msg.role === 'ai' ? renderMD(msg.content) : esc(msg.content).replace(/\n/g, '<br>');
+        }
     }
     return innerContent;
 }
@@ -2213,7 +2220,8 @@ function renderMsg(msg) {
     const b = document.createElement('div');
     b.className = `message-bubble ${msg.role}`;
     
-    if (msg.proxy && (msg.proxy.type === 'image' || msg.proxy.type === 'voice' || msg.proxy.type === 'emoji')) {
+    const isCard = typeof msg.content === 'string' && (msg.content.match(/^\[向你转账 ([\d.]+)元(?:，备注：(.*?))?\]$/) || msg.content.match(/^\[发送了定位：(.*?)\]$/));
+    if ((msg.proxy && (msg.proxy.type === 'image' || msg.proxy.type === 'voice' || msg.proxy.type === 'emoji')) || isCard) {
         b.classList.add('media-transparent');
         b.style.background = 'transparent';
         b.style.padding = '0';
@@ -2684,7 +2692,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if ($('extTransferBtn')) {
         $('extTransferBtn').addEventListener('click', async () => {
-            const amount = await showPrompt('请输入转账金额', '微信转账');
+            const amount = await showPrompt('请输入转账金额', 'wink转账');
             if (!amount) return;
             const remark = await showPrompt('请输入转账备注(选填)', '转账备注') || '转账';
             $('extPanel').style.display = 'none';
@@ -2740,9 +2748,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    if ($('batchImportEmojiBtn')) {
-        $('batchImportEmojiBtn').addEventListener('click', async () => {
-            const bulkText = await showPrompt('请粘贴表情包文本（格式为"描述: URL"，每行一个）', '批量导入表情包', '惊呆: https://example.com/a.png\n大笑: https://example.com/b.png');
+    if ($('batchImportUrlBtn')) {
+        $('batchImportUrlBtn').addEventListener('click', async () => {
+            const bulkText = await showPrompt('请粘贴表情包文本（格式为"描述: URL"，每行一个）', '导入文本URL', '惊呆: https://example.com/a.png\n大笑: https://example.com/b.png');
             if (!bulkText) return;
             
             let emojis = [];
@@ -2771,6 +2779,38 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 showToast('未找到有效格式的表情包');
             }
+        });
+    }
+
+    if ($('batchImportEmojiBtn') && $('batchImportEmojiInput')) {
+        $('batchImportEmojiBtn').addEventListener('click', () => {
+            $('batchImportEmojiInput').click();
+        });
+        $('batchImportEmojiInput').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+            
+            let emojis = [];
+            try { emojis = JSON.parse(localStorage.getItem('customEmojis')) || []; } catch(err){}
+            let addedCount = 0;
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                // 使用文件名（去掉扩展名）作为默认的表情描述
+                const keyword = file.name.replace(/\.[^/.]+$/, "");
+                const url = URL.createObjectURL(file);
+                
+                emojis.push({ id: Date.now().toString() + Math.random().toString(36).substr(2, 5), url, keyword });
+                addedCount++;
+            }
+            
+            if (addedCount > 0) {
+                localStorage.setItem('customEmojis', JSON.stringify(emojis));
+                renderCustomEmojis();
+                showToast(`成功导入 ${addedCount} 个表情包图片`);
+            }
+            // 重置 input 以允许重复选择同一批文件
+            e.target.value = '';
         });
     }
 });
@@ -3202,7 +3242,8 @@ bindBubbleCustomColors();
 
 // 聊天背景图上传
 // ===== 聊天背景图片裁剪器 =====
-// 弹出全屏裁剪界面；用户可拖拽/缩放图片；图片边缘永远不会进入裁剪框（cover 模式）
+// 弹出全屏裁剪界面；图片完整显示（contain），用户拖动/缩放裁剪框来选取
+// 裁剪框始终被约束在图片显示范围内 → 输出永远是图片真实区域的一部分
 // 返回 Promise<Blob | null>，取消时为 null
 function openImageCropper(srcUrl) {
     return new Promise((resolve) => {
@@ -3233,27 +3274,32 @@ function openImageCropper(srcUrl) {
                 </div>
                 <div class="image-cropper-mask"></div>
             </div>
-            <div class="image-cropper-footer">拖动调整位置 · 双指缩放（鼠标滚轮）· 图片始终铺满裁剪框</div>
+            <div class="image-cropper-footer">拖动选择裁剪区域 · 滚轮 / 双指调整裁剪框大小</div>
         `;
         phoneBody.appendChild(overlay);
         overlay.classList.add('active');
 
-        const stage   = overlay.querySelector('.image-cropper-stage');
-        const imgEl   = overlay.querySelector('.image-cropper-img');
-        const mask    = overlay.querySelector('.image-cropper-mask');
-        const okBtn   = overlay.querySelector('[data-act="confirm"]');
+        const imgEl     = overlay.querySelector('.image-cropper-img');
+        const mask      = overlay.querySelector('.image-cropper-mask');
+        const okBtn     = overlay.querySelector('[data-act="confirm"]');
         const cancelBtn = overlay.querySelector('[data-act="cancel"]');
-        const body    = overlay.querySelector('.image-cropper-body');
+        const body      = overlay.querySelector('.image-cropper-body');
 
-        let cropW = 0, cropH = 0, cropLeft = 0, cropTop = 0;
+        // 图片在 body 坐标系内的显示信息（contain 模式，完整居中）
         let imgNaturalW = 0, imgNaturalH = 0;
-        let baseScale = 1;
-        let scale = 1;
-        let tx = 0, ty = 0; // 图片中心相对裁剪框中心的偏移（像素）
-        let pinchStartDist = 0;
-        let pinchStartScale = 1;
-        let dragLastX = 0, dragLastY = 0, dragging = false;
+        let imgDispW = 0, imgDispH = 0;
+        let imgLeft  = 0, imgTop  = 0;
+
+        // 裁剪框（body 坐标系）
+        let cropW = 0, cropH = 0, cropLeft = 0, cropTop = 0;
+        let cropInitialized = false;
+
+        // 交互状态
+        let dragging = false;
+        let dragLastX = 0, dragLastY = 0;
         let pinching = false;
+        let pinchStartDist = 0;
+        let pinchStartCropW = 0;
 
         function close(result) {
             overlay.classList.remove('active');
@@ -3262,68 +3308,89 @@ function openImageCropper(srcUrl) {
             resolve(result);
         }
 
-        function clampTranslate() {
-            const w = imgNaturalW * scale;
-            const h = imgNaturalH * scale;
-            // 边缘不进入裁剪框：图片在裁剪框上的偏移不能让任意一边的图边落在框内
-            // 即 |tx| <= (w - cropW) / 2，前提是 w >= cropW（baseScale 已保证）
-            const maxX = Math.max(0, (w - cropW) / 2);
-            const maxY = Math.max(0, (h - cropH) / 2);
-            if (tx >  maxX) tx =  maxX;
-            if (tx < -maxX) tx = -maxX;
-            if (ty >  maxY) ty =  maxY;
-            if (ty < -maxY) ty = -maxY;
-        }
-
-        function applyTransform() {
-            // 把图片从其左上角放到 stage 中心，再加上偏移
-            const w = imgNaturalW * scale;
-            const h = imgNaturalH * scale;
-            // imgEl 的 left/top 已是 50%（CSS），transform-origin 0,0
-            // 我们需要让图中心位于 (cropCx + tx, cropCy + ty)，等价于 left = -w/2 + tx + (cropCx - stageCx)
-            const stageRect = stage.getBoundingClientRect();
-            const stageCx = stageRect.width / 2;
-            const stageCy = stageRect.height / 2;
-            const cropCx = cropLeft + cropW / 2;
-            const cropCy = cropTop  + cropH / 2;
-            const dx = (cropCx - stageCx) + tx - w / 2;
-            const dy = (cropCy - stageCy) + ty - h / 2;
-            imgEl.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
-            imgEl.style.width = imgNaturalW + 'px';
-            imgEl.style.height = imgNaturalH + 'px';
-        }
-
-        function layout() {
-            const rect = body.getBoundingClientRect();
-            // 裁剪框：在 body 内居中，按比例填充，留 6% 边距
-            const margin = 12;
-            const availW = rect.width  - margin * 2;
-            const availH = rect.height - margin * 2;
-            let cw = availW;
-            let ch = cw / targetRatio;
-            if (ch > availH) {
-                ch = availH;
-                cw = ch * targetRatio;
+        // 把裁剪框约束在图片显示区域内（大小 + 位置）
+        function clampCrop() {
+            // 大小约束：不超过图片显示尺寸（保持目标比例）
+            if (cropW > imgDispW) {
+                cropW = imgDispW;
+                cropH = cropW / targetRatio;
             }
-            cropW = Math.round(cw);
-            cropH = Math.round(ch);
-            cropLeft = Math.round((rect.width  - cropW) / 2);
-            cropTop  = Math.round((rect.height - cropH) / 2);
+            if (cropH > imgDispH) {
+                cropH = imgDispH;
+                cropW = cropH * targetRatio;
+            }
+            // 最小尺寸（防止意外缩到 0）
+            const minSide = 40;
+            if (cropW < minSide && cropH < minSide) {
+                if (targetRatio >= 1) {
+                    cropH = minSide;
+                    cropW = cropH * targetRatio;
+                } else {
+                    cropW = minSide;
+                    cropH = cropW / targetRatio;
+                }
+            }
+            // 位置约束：完全在图片显示区域内
+            if (cropLeft < imgLeft) cropLeft = imgLeft;
+            if (cropTop  < imgTop)  cropTop  = imgTop;
+            if (cropLeft + cropW > imgLeft + imgDispW) cropLeft = imgLeft + imgDispW - cropW;
+            if (cropTop  + cropH > imgTop  + imgDispH) cropTop  = imgTop  + imgDispH - cropH;
+        }
 
+        function applyMask() {
             mask.style.left   = cropLeft + 'px';
             mask.style.top    = cropTop  + 'px';
             mask.style.width  = cropW    + 'px';
             mask.style.height = cropH    + 'px';
-
-            if (imgNaturalW && imgNaturalH) {
-                baseScale = Math.max(cropW / imgNaturalW, cropH / imgNaturalH);
-                if (scale < baseScale) scale = baseScale;
-                clampTranslate();
-                applyTransform();
-            }
         }
 
-        // 事件：拖拽
+        function layout() {
+            const rect = body.getBoundingClientRect();
+            if (!imgNaturalW || !imgNaturalH) return;
+
+            // 图片以 contain 适配 body（留 12px 边距）
+            const margin = 12;
+            const availW = Math.max(0, rect.width  - margin * 2);
+            const availH = Math.max(0, rect.height - margin * 2);
+            const imgRatio = imgNaturalW / imgNaturalH;
+
+            if (availW / availH > imgRatio) {
+                imgDispH = availH;
+                imgDispW = imgDispH * imgRatio;
+            } else {
+                imgDispW = availW;
+                imgDispH = imgDispW / imgRatio;
+            }
+            imgLeft = (rect.width  - imgDispW) / 2;
+            imgTop  = (rect.height - imgDispH) / 2;
+
+            // 用具体像素覆盖 CSS 中的 50% 定位
+            imgEl.style.left = imgLeft + 'px';
+            imgEl.style.top  = imgTop  + 'px';
+            imgEl.style.width  = imgDispW + 'px';
+            imgEl.style.height = imgDispH + 'px';
+            imgEl.style.transform = 'none';
+
+            // 初始化裁剪框：图片内能容纳的最大目标比例矩形，居中
+            if (!cropInitialized) {
+                let cw = imgDispW;
+                let ch = cw / targetRatio;
+                if (ch > imgDispH) {
+                    ch = imgDispH;
+                    cw = ch * targetRatio;
+                }
+                cropW = cw;
+                cropH = ch;
+                cropLeft = imgLeft + (imgDispW - cropW) / 2;
+                cropTop  = imgTop  + (imgDispH - cropH) / 2;
+                cropInitialized = true;
+            } else {
+                clampCrop();
+            }
+            applyMask();
+        }
+
+        // 拖拽 = 移动裁剪框；双指/滚轮 = 缩放裁剪框
         function onPointerDown(e) {
             if (e.touches && e.touches.length === 2) {
                 pinching = true;
@@ -3331,7 +3398,7 @@ function openImageCropper(srcUrl) {
                 const dx = e.touches[0].clientX - e.touches[1].clientX;
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
                 pinchStartDist = Math.hypot(dx, dy);
-                pinchStartScale = scale;
+                pinchStartCropW = cropW;
                 e.preventDefault();
                 return;
             }
@@ -3347,22 +3414,27 @@ function openImageCropper(srcUrl) {
                 const dy = e.touches[0].clientY - e.touches[1].clientY;
                 const dist = Math.hypot(dx, dy);
                 if (pinchStartDist > 0) {
-                    const next = pinchStartScale * (dist / pinchStartDist);
-                    scale = Math.max(baseScale, Math.min(baseScale * 6, next));
-                    clampTranslate();
-                    applyTransform();
+                    // 以裁剪框中心为锚点缩放
+                    const cx = cropLeft + cropW / 2;
+                    const cy = cropTop  + cropH / 2;
+                    cropW = pinchStartCropW * (dist / pinchStartDist);
+                    cropH = cropW / targetRatio;
+                    cropLeft = cx - cropW / 2;
+                    cropTop  = cy - cropH / 2;
+                    clampCrop();
+                    applyMask();
                 }
                 e.preventDefault();
                 return;
             }
             if (!dragging) return;
             const p = e.touches ? e.touches[0] : e;
-            tx += p.clientX - dragLastX;
-            ty += p.clientY - dragLastY;
+            cropLeft += p.clientX - dragLastX;
+            cropTop  += p.clientY - dragLastY;
             dragLastX = p.clientX;
             dragLastY = p.clientY;
-            clampTranslate();
-            applyTransform();
+            clampCrop();
+            applyMask();
             e.preventDefault();
         }
         function onPointerUp(e) {
@@ -3373,10 +3445,14 @@ function openImageCropper(srcUrl) {
         function onWheel(e) {
             e.preventDefault();
             const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
-            const next = scale * factor;
-            scale = Math.max(baseScale, Math.min(baseScale * 6, next));
-            clampTranslate();
-            applyTransform();
+            const cx = cropLeft + cropW / 2;
+            const cy = cropTop  + cropH / 2;
+            cropW *= factor;
+            cropH = cropW / targetRatio;
+            cropLeft = cx - cropW / 2;
+            cropTop  = cy - cropH / 2;
+            clampCrop();
+            applyMask();
         }
 
         body.addEventListener('mousedown', onPointerDown);
@@ -3390,15 +3466,14 @@ function openImageCropper(srcUrl) {
 
         // 加载图片
         imgEl.onload = () => {
-            imgNaturalW = imgEl.naturalWidth || imgEl.width;
+            imgNaturalW = imgEl.naturalWidth  || imgEl.width;
             imgNaturalH = imgEl.naturalHeight || imgEl.height;
             if (!imgNaturalW || !imgNaturalH) {
                 showToast('图片尺寸异常');
                 close(null);
                 return;
             }
-            tx = 0; ty = 0;
-            scale = 1;
+            cropInitialized = false;
             layout();
             okBtn.disabled = false;
         };
@@ -3415,27 +3490,27 @@ function openImageCropper(srcUrl) {
         cancelBtn.addEventListener('click', () => close(null));
         okBtn.addEventListener('click', () => {
             try {
-                // 输出尺寸：以裁剪框像素为基准，最多放大到 1280
+                // 把裁剪框（body 坐标）映射回原图像素坐标
+                const k = imgNaturalW / imgDispW; // 显示像素 → 原图像素 比例
+                let sx = (cropLeft - imgLeft) * k;
+                let sy = (cropTop  - imgTop)  * k;
+                let sw = cropW * k;
+                let sh = cropH * k;
+                // 数值安全：clampCrop 保证不会超界，但浮点误差兜底
+                if (sx < 0) sx = 0;
+                if (sy < 0) sy = 0;
+                if (sx + sw > imgNaturalW) sw = imgNaturalW - sx;
+                if (sy + sh > imgNaturalH) sh = imgNaturalH - sy;
+
+                // 输出尺寸：裁剪框像素 * 2，限制在 [640, 1280]
                 const outW = Math.min(1280, Math.max(640, Math.round(cropW * 2)));
-                const outH = Math.round(outW / (cropW / cropH));
+                const outH = Math.round(outW / targetRatio);
                 const canvas = document.createElement('canvas');
-                canvas.width = outW;
+                canvas.width  = outW;
                 canvas.height = outH;
                 const ctx = canvas.getContext('2d');
+                ctx.drawImage(imgEl, sx, sy, sw, sh, 0, 0, outW, outH);
 
-                // 在裁剪框内的图片左上角（相对裁剪框）：
-                const dispW = imgNaturalW * scale;
-                const dispH = imgNaturalH * scale;
-                const imgLeftInCrop = (cropW - dispW) / 2 + tx; // 可能为负
-                const imgTopInCrop  = (cropH - dispH) / 2 + ty;
-                // 比例：把裁剪框的 [0..cropW] 映射到画布 [0..outW]
-                const k = outW / cropW;
-                ctx.drawImage(
-                    imgEl,
-                    0, 0, imgNaturalW, imgNaturalH,
-                    imgLeftInCrop * k, imgTopInCrop * k,
-                    dispW * k, dispH * k
-                );
                 canvas.toBlob((blob) => {
                     if (!blob) {
                         showToast('裁剪失败（可能是跨域图片）');
@@ -5742,13 +5817,14 @@ ${builtinNegativePrompt}
 ${userNegativePrompt ? `用户额外不想要：${userNegativePrompt}` : '用户没有额外负面提示。'}
 
 【生成要求】
-1. 角色必须像真实存在的普通居民/智慧生命，不限人类；如果世界观包含西幻、科幻、修仙、兽人、精灵、机器人、妖怪、异星种族等设定，物种、社会身份与生活方式必须跟随世界观和用户种族约束自然生成，不要强行写成人类。
-2. 名字必须由世界观、时代、地域、种族/物种文化共同决定：现代世界可用现代姓名，西幻可用精灵/矮人/兽人/人类等文化风格名，科幻可用代号或异星命名，修仙可用道号/族名/本名；不要把所有主题都写成现代中文人名。避免高频网文名、明星名、过度二次元名；不要使用负面提示词中的名字或角色类型。
-3. 性格要具体，优先使用生活化/世界观内日常细节，而不是“高冷、温柔、神秘、腹黑”等空泛标签。
-4. system_prompt 必须写成第一人称自我设定，说明自己的物种/身份/世界观背景，并要求以后通过手机聊天；不能声称看见用户的脸、动作、衣着或现实环境，只能根据用户发来的文字、图片、语音或动作标签推断。
-5. first_message 必须是 ta 主动发给"用户"的第一条手机消息，定位为"自我介绍 + 打招呼"：必须包含自己的名字、一句话身份/世界观锚点（与性别一致），语气符合人设（不要写成旁白），结尾用一个轻松的开放式问句邀请用户聊聊。不要描写面对面肢体动作；不要假设用户的样貌、动作或现实环境，只能基于"刚加上联系方式/第一次发消息"这种状态。
-6. 必须严格使用上面【用户约束】中给出的角色性别，不得自行更改；姓名、自称、外貌暗示、生活细节都要与该性别一致。
-7. 只输出一个 JSON 对象，不要输出 markdown、代码块、解释或多余文字。字段固定如下：
+1. 核心人设强制属性：必须设定为【极其深爱/喜欢用户】；必须设定为【外貌极具吸引力、颜值极高】；可以带有符合世界观的小怪癖或性格缺陷（如傲娇、偏执、病娇、小气等），但【绝对不能有真正伤害用户的意图或行为】。
+2. 角色必须像真实存在的普通居民/智慧生命，不限人类；严格根据用户提供的主题或世界观去构建身份，如果用户只给了模糊关键词，不要强行脑补过分离奇的设定，而是补全合理的背景。
+3. 名字必须由世界观、时代、地域、种族/物种文化共同决定。避免高频网文名、明星名；绝不要使用负面提示词中的元素。
+4. 性格要具体，优先使用生活化/世界观内日常细节，而不是空泛标签。必须在字里行间自然流露出对用户的深情与自身的高颜值。
+5. system_prompt 必须写成第一人称自我设定，清楚描述自己【深爱用户】、【高颜值】以及【可能的小怪癖/性格瑕疵】。并说明以后通过手机聊天，不能声称看见用户的现实环境，只能根据用户发来的文字、图片、语音或动作标签推断。
+6. first_message 必须是 ta 主动发给"用户"的第一条手机消息。必须包含自己的名字、一句话身份锚点，语气符合其"爱用户但有小怪癖"的人设。结尾用一个轻松的问句邀请用户聊聊。禁止描写面对面肢体动作。
+7. 必须严格遵守【用户约束】中给定的性别与附加条件。
+8. 只输出一个 JSON 对象，不要输出 markdown、代码块、解释或多余文字。字段固定如下：
 {
   "name": "角色姓名，必须根据世界观与物种文化生成，不限人类姓名",
   "gender": "角色性别，必须与用户约束中的性别一致（例如：男性 / 女性 / 中性 / 非二元）",
